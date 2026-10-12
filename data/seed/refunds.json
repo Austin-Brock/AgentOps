@@ -1,0 +1,12 @@
+[
+  {
+    "refund_id": "RF-0001",
+    "order_id": "4476",
+    "customer_id": "C-1001",
+    "amount_cents": 1999,
+    "reason": "damaged_on_arrival",
+    "status": "completed",
+    "created_at": "2026-10-03",
+    "idempotency_key": "seed-rf-0001"
+  }
+]

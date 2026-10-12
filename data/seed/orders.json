@@ -1,0 +1,115 @@
+[
+  {
+    "order_id": "4471",
+    "customer_id": "C-1001",
+    "status": "delivered",
+    "placed_at": "2026-10-02",
+    "delivered_at": "2026-10-06",
+    "total_cents": 4299,
+    "currency": "USD",
+    "items": [
+      {"sku": "MUG-CER-01", "name": "Stoneware Mug, 12oz", "quantity": 2, "unit_price_cents": 1799},
+      {"sku": "SHIP-STD", "name": "Standard shipping", "quantity": 1, "unit_price_cents": 701}
+    ],
+    "carrier": "UPS",
+    "tracking_number": "1Z999AA10123456784"
+  },
+  {
+    "order_id": "4472",
+    "customer_id": "C-1001",
+    "status": "delivered",
+    "placed_at": "2026-04-06",
+    "delivered_at": "2026-04-10",
+    "total_cents": 2999,
+    "currency": "USD",
+    "items": [
+      {"sku": "TEA-SMP-04", "name": "Loose Leaf Sampler", "quantity": 1, "unit_price_cents": 2999}
+    ],
+    "carrier": "USPS",
+    "tracking_number": "9400110200793123456781"
+  },
+  {
+    "order_id": "4473",
+    "customer_id": "C-1002",
+    "status": "in_transit",
+    "placed_at": "2026-10-09",
+    "delivered_at": null,
+    "total_cents": 15999,
+    "currency": "USD",
+    "items": [
+      {"sku": "KET-ELC-22", "name": "Variable Temperature Kettle", "quantity": 1, "unit_price_cents": 15999}
+    ],
+    "carrier": "FedEx",
+    "tracking_number": "772043213456"
+  },
+  {
+    "order_id": "4474",
+    "customer_id": "C-1002",
+    "status": "delivered",
+    "placed_at": "2026-09-27",
+    "delivered_at": "2026-10-01",
+    "total_cents": 24999,
+    "currency": "USD",
+    "items": [
+      {"sku": "ESP-MCH-07", "name": "Semi-Automatic Espresso Machine", "quantity": 1, "unit_price_cents": 24999}
+    ],
+    "carrier": "FedEx",
+    "tracking_number": "772043219988"
+  },
+  {
+    "order_id": "4475",
+    "customer_id": "C-1003",
+    "status": "delivered",
+    "placed_at": "2026-09-16",
+    "delivered_at": "2026-09-20",
+    "total_cents": 7500,
+    "currency": "USD",
+    "items": [
+      {"sku": "GRN-HND-03", "name": "Hand Burr Grinder", "quantity": 1, "unit_price_cents": 7500}
+    ],
+    "carrier": "UPS",
+    "tracking_number": "1Z999AA10123456999"
+  },
+  {
+    "order_id": "4476",
+    "customer_id": "C-1001",
+    "status": "delivered",
+    "placed_at": "2026-09-28",
+    "delivered_at": "2026-10-02",
+    "total_cents": 1999,
+    "currency": "USD",
+    "items": [
+      {"sku": "FLT-PPR-01", "name": "Paper Filters, 100ct", "quantity": 1, "unit_price_cents": 1999}
+    ],
+    "carrier": "USPS",
+    "tracking_number": "9400110200793123459999"
+  },
+  {
+    "order_id": "4477",
+    "customer_id": "C-1004",
+    "status": "processing",
+    "placed_at": "2026-10-11",
+    "delivered_at": null,
+    "total_cents": 3500,
+    "currency": "USD",
+    "items": [
+      {"sku": "SCL-DIG-09", "name": "Digital Coffee Scale", "quantity": 1, "unit_price_cents": 3500}
+    ],
+    "carrier": null,
+    "tracking_number": null
+  },
+  {
+    "order_id": "4478",
+    "customer_id": "C-1003",
+    "status": "delivered",
+    "placed_at": "2026-08-11",
+    "delivered_at": "2026-08-15",
+    "total_cents": 12000,
+    "currency": "USD",
+    "items": [
+      {"sku": "CRF-STL-05", "name": "Insulated Carafe", "quantity": 1, "unit_price_cents": 12000}
+    ],
+    "carrier": "UPS",
+    "tracking_number": "1Z999AA10123457777"
+  }
+]

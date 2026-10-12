@@ -34,12 +34,26 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | **Phase 1 — Agent from scratch** |
-| Agent runtime | Custom Python loop (no orchestration framework yet) |
+| Current phase | **Phase 1 — Agent from scratch** (code complete, awaiting a live evaluation run) |
+| Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
 | Model provider | Anthropic (`claude-opus-5`) |
-| Live scenarios | 0 / 20 |
+| Offline tests | 62 passing, no API key required |
+| Live scenarios | 20 defined, not yet run |
 
-See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates.
+See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
+[`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built.
+
+## Quickstart
+
+```bash
+make install     # uv venv + dependencies
+make test        # 62 offline tests; no credentials needed
+make lint
+
+export ANTHROPIC_API_KEY=...
+make eval        # the 20-scenario evaluation suite
+make serve       # FastAPI on :8000 — POST /runs
+```
 
 ## Documentation
 
@@ -48,6 +62,8 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 | [`docs/roadmap.md`](docs/roadmap.md) | The 10 phases, deliverables, and acceptance criteria |
 | [`docs/architecture.md`](docs/architecture.md) | Target architecture and what exists today |
 | [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why |
+| [`docs/phase-1.md`](docs/phase-1.md) | Phase 1: the hand-written agent loop |
+| [`evaluations/benchmarks/README.md`](evaluations/benchmarks/README.md) | Running the evaluation suite |
 
 ## Repository layout
 

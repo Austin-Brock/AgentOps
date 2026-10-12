@@ -102,3 +102,19 @@ asked to time out reproducibly.
 
 **Consequence:** Phase 9's duplicate-execution test is a deterministic test rather than a story
 about one.
+
+---
+
+## DD-008 — Business time is simulated against a fixed date
+
+**Decision:** eligibility windows are computed against `settings.simulated_today`
+(2026-10-12), not `date.today()`.
+
+**Why:** the refund window is 30 days. With a real clock, the seed order that is "inside the
+window" today is outside it next month, and a scenario suite that passes in October starts
+failing in November for reasons that have nothing to do with the agent. A measurement you
+cannot reproduce is not a measurement.
+
+**Consequence:** the clock is a setting, so an experiment can move it deliberately — which is
+how the window-boundary cases get tested. Real wall-clock time arrives with Phase 9's durable
+execution, where elapsed time is part of what is being tested.
