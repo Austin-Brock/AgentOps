@@ -47,6 +47,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 
 ```bash
 make install     # uv venv + dependencies
+make demo        # watch the agent work, no credentials needed
 make test        # 62 offline tests; no credentials needed
 make lint
 

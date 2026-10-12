@@ -30,6 +30,7 @@ backend/app/
 cd backend
 uv venv --python 3.11 .venv && uv pip install -e '.[dev]'
 
+.venv/bin/python scripts/demo.py                # six narrated runs, no API key needed
 .venv/bin/python -m pytest                      # 62 tests, no API key needed
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 
