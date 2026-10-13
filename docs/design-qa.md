@@ -1,12 +1,13 @@
-# Questions this design should survive
+# Design rationale
 
-Every claim below is answerable from the code, and the file is named where it is. Where the honest
-answer is "not yet" or "that part is weak", it says so — a design you can only defend by omission
-is not defended.
+Written as questions, because that is how the design actually gets explained — to a new
+contributor, to a reviewer, or to me in six months. Every claim is answerable from the code, and
+the file is named where it is. Where the honest answer is "not yet" or "that part is weak", it
+says so; a design that only holds up by omission does not hold up.
 
 The decision log in [`design-decisions.md`](design-decisions.md) records *why* each choice was
-made, in the order the choices happened. This document is the other view: the questions someone
-would actually ask, grouped by the part of the system they are poking at.
+made, in the order the choices happened. This document is the other view: the same reasoning
+grouped by the part of the system it concerns.
 
 ---
 
@@ -224,9 +225,9 @@ that one file.
 happened in past conversations, and semantic facts about a customer that have to survive a process
 restart. That is a real requirement; "applications have databases" is not.
 
-An interviewer pushing further gets the Phase 6 answer too: **pgvector rather than a dedicated
-vector database.** One system to operate, one backup, one consistency story, and joins between
-embeddings and business rows. A dedicated vector store earns its place at a scale this project will
+The same reasoning settles Phase 6: **pgvector rather than a dedicated vector database.** One
+system to operate, one backup, one consistency story, and joins between embeddings and business
+rows. A dedicated vector store earns its place at a scale this project will
 never reach, and choosing one now would be resume-driven design.
 
 ### Why is business time simulated?
@@ -493,8 +494,9 @@ Two known problems with that plan, both written down before building it:
 
 ## Weaknesses
 
-The answers above are the ones I would be happy to be asked. These are the ones I would expect to
-be asked second.
+Everything above describes what the system does. This section is what it does not do yet, and
+where the design is currently wrong — kept in the same document rather than a separate one,
+because a rationale that omits its own gaps is advertising.
 
 ### What is the weakest part of the system?
 
@@ -527,7 +529,7 @@ findings from the first live evaluation were defects in the grader, and one of m
 the score worse on the next run. The instinct to tighten an assertion the moment you observe a
 behavior is the same instinct as over-fitting.
 
-### What are you least confident about right now?
+### What is least verified right now?
 
 That the demo page reads well to someone who has never seen the project. Its correctness is tested
 in both jsdom and against the live deployment, but "a visitor with no context can understand what

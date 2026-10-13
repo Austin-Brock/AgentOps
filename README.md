@@ -68,7 +68,7 @@ other safety requirements are enforced in application code — never left to the
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates,
 [`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built, and
-[`docs/design-qa.md`](docs/design-qa.md) for the design defended question by question — why no
+[`docs/design-qa.md`](docs/design-qa.md) for the design rationale question by question — why no
 framework, why no database yet, why Vercel, and which parts are currently weak.
 
 ## Quickstart
@@ -95,7 +95,7 @@ make serve              # FastAPI on :8000 — POST /runs
 | [`docs/roadmap.md`](docs/roadmap.md) | The 10 phases, deliverables, and acceptance criteria |
 | [`docs/architecture.md`](docs/architecture.md) | Target architecture and what exists today |
 | [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why, in the order it happened |
-| [`docs/design-qa.md`](docs/design-qa.md) | **The design, defended.** The questions an interviewer would ask, answered from the code — including the weak parts |
+| [`docs/design-qa.md`](docs/design-qa.md) | **Design rationale in question form** — how each part works and why, answered from the code, including the parts that are weak |
 | [`docs/phase-1.md`](docs/phase-1.md) | Phase 1: the hand-written agent loop |
 | [`docs/phase-1.5.md`](docs/phase-1.5.md) | Phase 1.5: the deployed scenario demo, and what each step cost |
 | [`evaluations/benchmarks/README.md`](evaluations/benchmarks/README.md) | Running the evaluation suite |
