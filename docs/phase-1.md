@@ -34,7 +34,7 @@ cd backend
 uv venv --python 3.11 .venv && uv pip install -e '.[dev]'
 
 .venv/bin/python scripts/demo.py                # six narrated runs, no API key needed
-.venv/bin/python -m pytest                      # 90 tests, no API key needed
+.venv/bin/python -m pytest                      # 102 tests, no API key needed
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 
 cp ../.env.example ../.env                      # then add your key; needed below
@@ -42,6 +42,17 @@ cp ../.env.example ../.env                      # then add your key; needed belo
 .venv/bin/python -m app.evaluation.run          # the 20 scenarios
 .venv/bin/uvicorn app.main:app --reload         # then POST /runs
 ```
+
+## Measured result
+
+19/19 gated scenarios on three consecutive runs against `gpt-5` at `effort=medium`, with S11
+tracked as a known gap for Phase 10. ~75k input / ~40k output tokens and about two minutes per
+run at concurrency 3.
+
+Four of the five findings from first live contact were defects in the measurement, not the agent
+— see [`../evaluations/results/README.md`](../evaluations/results/README.md). The one real defect
+was an under-specified prompt: it said to ask when a needed fact was missing but never said what
+to do when nothing was missing, and the agent resolved that inconsistently across runs.
 
 ## The five challenges
 

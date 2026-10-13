@@ -8,6 +8,7 @@ No model grades another model (see the dataset header).
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -128,7 +129,8 @@ def grade(
         )
 
     if refund := expect.get("refund"):
-        result.checks.extend(_grade_refund(refund, store, refunds_before or {}))
+        for entry in refund if isinstance(refund, list) else [refund]:
+            result.checks.extend(_grade_refund(entry, store, refunds_before or {}))
 
     if patterns := expect.get("response_matches_any"):
         hit = next((p for p in patterns if _search(p, run.final_text)), None)
@@ -193,5 +195,45 @@ def _grade_refund(
     return checks
 
 
+#: Typographic characters models emit freely and pattern authors never type.
+#: Every one of the first 20 live replies contained at least one of these, and a
+#: scenario failed on nothing more than a curly apostrophe in "couldn\'t find".
+#: Matching raw text makes assertions pass or fail on punctuation the scenario
+#: was never about.
+_PUNCTUATION = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201a": "'",
+        "\u201b": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u201e": '"',
+        "\u2010": "-",
+        "\u2011": "-",
+        "\u2012": "-",
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2015": "-",
+        "\u2212": "-",
+        "\u00a0": " ",
+        "\u2009": " ",
+        "\u202f": " ",
+        "\u2026": "...",
+        "\u00d7": "x",
+    }
+)
+
+
+def normalize(text: str) -> str:
+    """Fold typographic punctuation to ASCII before matching.
+
+    This is a correctness fix, not a loosening: it makes a pattern match the
+    text it was always meant to match. Scenario patterns are validated as
+    ASCII-only so the two sides cannot drift apart.
+    """
+    return unicodedata.normalize("NFKC", text).translate(_PUNCTUATION)
+
+
 def _search(pattern: str, text: str) -> bool:
-    return re.search(pattern, text, flags=re.IGNORECASE) is not None
+    return re.search(pattern, normalize(text), flags=re.IGNORECASE) is not None

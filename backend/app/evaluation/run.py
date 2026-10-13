@@ -102,8 +102,10 @@ async def run_scenario(scenario: Scenario, settings: Settings) -> ScenarioResult
 
     refunds_before = {}
     if refund_expect := scenario.expect.get("refund"):
-        order_id = refund_expect["order_id"]
-        refunds_before[order_id] = len(store.refunds_for_order(order_id))
+        entries = refund_expect if isinstance(refund_expect, list) else [refund_expect]
+        for entry in entries:
+            order_id = entry["order_id"]
+            refunds_before[order_id] = len(store.refunds_for_order(order_id))
 
     started = time.perf_counter()
     try:
@@ -169,11 +171,26 @@ def report(summary: Summary) -> str:
         lines.append("  Failures:")
         for result in failures:
             lines.append(f"    {result.scenario_id} {result.title}")
+            lines.append(f"        tools executed: {result.tools_executed or '(none)'}")
+            if result.tools_refused:
+                lines.append(f"        tools refused : {result.tools_refused}")
             for check in result.failures:
                 lines.append(f"        - {check.name}: {check.detail}")
             if result.error:
                 lines.append(f"        - error: {result.error}")
+            # Show the evidence. Without it, diagnosing a wording failure costs
+            # another live run, which is how the same bad assertion got
+            # "fixed" twice.
+            if result.final_text:
+                lines.append("        final message:")
+                lines.extend(
+                    f"        | {line}" for line in _excerpt(result.final_text).splitlines()
+                )
     return "\n".join(lines)
+
+
+def _excerpt(text: str, limit: int = 900) -> str:
+    return text if len(text) <= limit else text[:limit] + "\n... [truncated]"
 
 
 def write_results(summary: Summary) -> Path:

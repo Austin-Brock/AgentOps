@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from app.evaluation.grader import grade
+from app.evaluation.grader import grade, normalize
 from app.evaluation.scenario import DatasetError, load_dataset
 from app.llm.scripted import call, say
 from app.tools.toolset import build_support_toolset
@@ -187,3 +187,81 @@ class TestGrader:
         failed = {c.name for c in result.failures}
         assert "response_not_matches" in failed
         assert "response_matches_any" in failed
+
+
+class TestTextNormalization:
+    """Models emit typographic punctuation; patterns are written in ASCII.
+
+    Every reply in the first live run contained at least one curly quote, en
+    dash, or non-breaking hyphen, and one scenario failed on nothing more than
+    that. Folding both sides to ASCII is what makes a wording assertion mean
+    what it says.
+    """
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            # Codepoints are written as escapes: the characters under test are
+            # visually indistinguishable from their ASCII counterparts, which is
+            # the entire reason they broke an assertion in the first place.
+            ("I couldn\u2019t find it", "I couldn't find it"),  # right single quote
+            ("the 30\u2011day window", "the 30-day window"),  # non-breaking hyphen
+            ("items \u2014 and total", "items - and total"),  # em dash
+            ("a \u2013 b", "a - b"),  # en dash
+            ("\u201cquoted\u201d", '"quoted"'),  # curly double quotes
+            ("2 \u00d7 mugs", "2 x mugs"),  # multiplication sign
+            ("non\u00a0breaking", "non breaking"),  # no-break space
+            ("wait\u2026", "wait..."),  # ellipsis
+        ],
+    )
+    def test_punctuation_folds_to_ascii(self, raw: str, expected: str) -> None:
+        assert normalize(raw) == expected
+
+    def test_ascii_text_is_untouched(self) -> None:
+        plain = "Order 4471 was delivered on 2026-10-06 for $42.99."
+        assert normalize(plain) == plain
+
+    async def test_a_curly_apostrophe_no_longer_defeats_a_pattern(
+        self, dataset, make_agent, store
+    ) -> None:
+        scenario = dataset.get("S08")
+        agent, _ = make_agent(
+            [
+                call("lookup_order", {"order_id": "9999"}),
+                # The exact reply from the first live run, curly apostrophe and all.
+                say("I couldn\u2019t find an order with number 9999."),
+            ]
+        )
+        run = await agent.run(scenario.message)
+        result = grade(scenario, run, store, refunds_before={"9999": 0})
+        assert result.passed, [c.detail for c in result.failures]
+
+
+class TestDatasetPatternHygiene:
+    def test_non_ascii_patterns_are_rejected(self, tmp_path: Path) -> None:
+        """A pattern with a curly quote can never match normalized text."""
+        path = tmp_path / "dataset.yaml"
+        path.write_text(
+            yaml.safe_dump(
+                {
+                    "version": 1,
+                    "phase": 1,
+                    "scenarios": [
+                        {
+                            "id": "T01",
+                            "title": "t",
+                            "message": "m",
+                            "expect": {"response_matches_any": ["couldn\u2019t find"]},
+                        }
+                    ],
+                }
+            )
+        )
+        with pytest.raises(DatasetError, match="non-ASCII"):
+            load_dataset(path)
+
+    def test_the_shipped_dataset_uses_ascii_patterns(self, dataset) -> None:
+        for scenario in dataset.scenarios:
+            for key in ("response_matches_any", "response_not_matches"):
+                for pattern in scenario.expect.get(key, []):
+                    assert pattern.isascii(), f"{scenario.id}: {pattern!r}"

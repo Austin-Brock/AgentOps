@@ -34,11 +34,11 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | **Phase 1 — Agent from scratch** (code complete, awaiting a live evaluation run) |
+| Current phase | **Phase 1 — Agent from scratch** (complete) |
 | Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
 | Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
-| Offline tests | 90 passing, no API key required |
-| Live scenarios | 20 defined, not yet run |
+| Offline tests | 102 passing, no API key required |
+| Live scenarios | **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap |
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
 [`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built.
@@ -48,7 +48,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 ```bash
 make install     # uv venv + dependencies
 make demo        # watch the agent work, no credentials needed
-make test        # 90 offline tests; no credentials needed
+make test        # 102 offline tests; no credentials needed
 make lint
 
 cp .env.example .env && $EDITOR .env    # add your provider key
@@ -66,6 +66,7 @@ make serve       # FastAPI on :8000 — POST /runs
 | [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why |
 | [`docs/phase-1.md`](docs/phase-1.md) | Phase 1: the hand-written agent loop |
 | [`evaluations/benchmarks/README.md`](evaluations/benchmarks/README.md) | Running the evaluation suite |
+| [`evaluations/results/README.md`](evaluations/results/README.md) | Measured Phase 1 results and what the first live run exposed |
 
 ## Repository layout
 

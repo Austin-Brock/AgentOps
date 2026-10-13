@@ -166,3 +166,29 @@ agent behavior. Adapters also normalize *when* a missing credential surfaces: th
 raises at construction while Anthropic defers to request time, so the OpenAI adapter catches that
 and reports it through `credential_available()` instead. Without this, the same missing-key
 mistake was a clean 503 on one provider and a 500 on the other.
+
+---
+
+## DD-010 — Assert state, not wording
+
+**Decision:** scenario expectations prefer observable state — which tools ran, what the store
+contains afterwards, what status a refund carries — over regular expressions on the agent's
+prose. Wording checks stay, but as a secondary signal, and each must assert a property that is
+stable across phrasings rather than a specific phrasing.
+
+**Why:** the first five live runs made the cost concrete. Every reply contained typographic
+punctuation, so an ASCII pattern failed on a correct answer. A "not found" check was widened
+twice and still failed three different correct wordings. Two checks forbade *mentioning* a topic
+and so penalized the refusal they existed to verify. Meanwhile every state check — no refund
+created outside the window, the finance tool never executed, the amount never exceeding what was
+paid — was right every time, including on the runs where the wording checks were wrong.
+
+The asymmetry is structural. A refund row either exists or it does not. A sentence can be correct
+in unbounded ways, so a pattern over prose is a guess about vocabulary, and a guess that is wrong
+in the lenient direction is worse than no check at all — it reads as coverage.
+
+**Consequence:** the grader normalizes typographic punctuation before matching, and the dataset
+loader rejects two classes of pattern outright: non-ASCII ones, which can never match normalized
+text, and bare common words like `refund` or `system`, which match nearly any reply. The second
+guard immediately failed two scenarios of my own that were passing on `refund` and `system` —
+checks that had been asserting nothing while appearing to pass.

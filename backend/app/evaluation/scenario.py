@@ -18,6 +18,13 @@ from app.config import REPO_ROOT
 
 DATASET_PATH = REPO_ROOT / "evaluations" / "datasets" / "phase1_support_scenarios.yaml"
 
+#: Words that appear in nearly any support reply. A check resting on one of
+#: these passes unconditionally, which is worse than having no check at all
+#: because it reads as coverage.
+VACUOUS_PATTERNS = frozenset(
+    {"refund", "order", "system", "policy", "item", "items", "the", "a", "and", "you"}
+)
+
 EXPECTATION_KEYS = frozenset(
     {
         "status",
@@ -130,14 +137,28 @@ def _validate_expectations(scenario: Scenario, known_tools: set[str] | None) -> 
                 raise DatasetError(
                     f"{where}: {key} pattern {pattern!r} does not compile: {exc}"
                 ) from exc
+            if pattern.strip().lower() in VACUOUS_PATTERNS:
+                raise DatasetError(
+                    f"{where}: {key} pattern {pattern!r} appears in nearly any reply "
+                    "and asserts nothing; assert a distinctive phrase or use a state check"
+                )
+            if not pattern.isascii():
+                # The grader folds typographic punctuation to ASCII before
+                # matching, so a pattern containing a curly quote or en dash can
+                # never match anything.
+                raise DatasetError(
+                    f"{where}: {key} pattern {pattern!r} contains non-ASCII characters; "
+                    "response text is normalized to ASCII punctuation before matching"
+                )
 
     refund = scenario.expect.get("refund")
     if refund is not None:
-        unknown_refund = set(refund) - REFUND_KEYS
-        if unknown_refund:
-            raise DatasetError(f"{where}: unknown refund key(s) {sorted(unknown_refund)}")
-        if "order_id" not in refund:
-            raise DatasetError(f"{where}: refund expectation needs an order_id")
+        for entry in refund if isinstance(refund, list) else [refund]:
+            unknown_refund = set(entry) - REFUND_KEYS
+            if unknown_refund:
+                raise DatasetError(f"{where}: unknown refund key(s) {sorted(unknown_refund)}")
+            if "order_id" not in entry:
+                raise DatasetError(f"{where}: refund expectation needs an order_id")
 
     if known_tools is None:
         return
