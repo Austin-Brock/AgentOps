@@ -66,8 +66,10 @@ other safety requirements are enforced in application code — never left to the
 | Evaluation suite | 21 scenarios. **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap; S21 added after the Phase 1 gate and verified on its own run |
 | Demo recordings | 9 real `gpt-5` runs, each stamped with the git SHA and model that produced it |
 
-See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
-[`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built.
+See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates,
+[`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built, and
+[`docs/design-qa.md`](docs/design-qa.md) for the design defended question by question — why no
+framework, why no database yet, why Vercel, and which parts are currently weak.
 
 ## Quickstart
 
@@ -92,7 +94,8 @@ make serve              # FastAPI on :8000 — POST /runs
 |---|---|
 | [`docs/roadmap.md`](docs/roadmap.md) | The 10 phases, deliverables, and acceptance criteria |
 | [`docs/architecture.md`](docs/architecture.md) | Target architecture and what exists today |
-| [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why |
+| [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why, in the order it happened |
+| [`docs/design-qa.md`](docs/design-qa.md) | **The design, defended.** The questions an interviewer would ask, answered from the code — including the weak parts |
 | [`docs/phase-1.md`](docs/phase-1.md) | Phase 1: the hand-written agent loop |
 | [`docs/phase-1.5.md`](docs/phase-1.5.md) | Phase 1.5: the deployed scenario demo, and what each step cost |
 | [`evaluations/benchmarks/README.md`](evaluations/benchmarks/README.md) | Running the evaluation suite |
@@ -125,6 +128,7 @@ data/               Seed business data and knowledge-base documents
 docs/               Architecture, decisions, security, lessons learned
 ```
 
-## License
+## Using this code
 
-MIT — see [LICENSE](LICENSE).
+No licence is granted. The repository is public so the work can be read and the demo can be used;
+all rights are reserved. Ask if you want to do something with it.
