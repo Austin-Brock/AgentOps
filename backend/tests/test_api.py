@@ -36,12 +36,16 @@ def test_tools_endpoint_separates_visibility_from_authorization(client: TestClie
     assert "apply_account_credit" in body["advertised_to_model"]
 
 
-def test_missing_credential_is_a_503_not_a_crash(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+def test_missing_credential_is_a_503_not_a_crash(client: TestClient) -> None:
+    """Credentials are stripped suite-wide, so this exercises the real guard.
+
+    It must stay provider-agnostic: the detail names whichever variable the
+    configured provider needs, and asserting one provider's name here is how a
+    passing test turned into a live API call when the provider changed.
+    """
     response = client.post("/runs", json={"message": "My order #4471 arrived damaged."})
 
     assert response.status_code == 503
-    assert "ANTHROPIC_API_KEY" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert "credential" in detail.lower()
+    assert "API_KEY" in detail

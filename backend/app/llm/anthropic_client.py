@@ -55,9 +55,10 @@ class AnthropicModelClient:
             getattr(self._client, "api_key", None) or getattr(self._client, "auth_token", None)
         )
 
-    async def list_models(self, limit: int = 20) -> list[str]:
-        page = await self._client.models.list(limit=limit)
-        return [model.id for model in page.data]
+    async def list_models(self) -> list[str]:
+        """Every model the credential can reach."""
+        page = await self._client.models.list(limit=100)
+        return sorted(model.id for model in page.data)
 
     async def create(
         self,

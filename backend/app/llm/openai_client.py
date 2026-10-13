@@ -77,16 +77,20 @@ class OpenAIModelClient:
     def credential_available(self) -> bool:
         return self._client is not None and bool(getattr(self._client, "api_key", None))
 
-    async def list_models(self, limit: int = 20) -> list[str]:
+    async def list_models(self) -> list[str]:
+        """Every chat-capable model the credential can reach.
+
+        Returns the full list, not a page of it: callers check membership against
+        this, and a truncated list makes a model that merely sorts late look
+        unavailable.
+        """
         if self._client is None:
             raise self._init_error or OpenAIError("OpenAI client is not configured.")
         page = await self._client.models.list()
-        # The account-wide list includes embeddings, audio, and image models.
-        # Only chat-capable families can serve an agent loop.
-        chat = sorted(
+        # The account-wide list also carries embeddings, audio, and image models.
+        return sorted(
             m.id for m in page.data if m.id.startswith(("gpt-", "o1", "o3", "o4", "chatgpt-"))
         )
-        return chat[:limit]
 
     async def create(
         self,

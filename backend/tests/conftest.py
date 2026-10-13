@@ -14,11 +14,33 @@ from app.tools.base import Fault, FaultInjector
 from app.tools.registry import ToolRegistry
 from app.tools.toolset import SUPPORT_AGENT_SCOPES, build_support_toolset
 
+CREDENTIAL_VARS = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "OPENAI_ADMIN_KEY",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Strip provider credentials from every test.
+
+    app.config loads .env at import so the SDKs can see a key, which means a
+    developer with a working .env had a test suite that could reach a real
+    provider and bill them for it. It did: a credential-missing test started
+    making live calls the moment a key landed in .env. Tests drive scripted
+    clients and fakes, so no test has any business holding a credential.
+    """
+    for var in CREDENTIAL_VARS:
+        monkeypatch.delenv(var, raising=False)
+
 
 @pytest.fixture
 def settings() -> Settings:
     """Explicit settings so the suite cannot be perturbed by a local .env."""
     return Settings(
+        provider="anthropic",
         model="scripted",
         max_steps=6,
         max_tokens=4096,

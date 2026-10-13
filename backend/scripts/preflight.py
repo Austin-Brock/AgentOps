@@ -36,10 +36,22 @@ async def main() -> int:
 
     client = build_model_client(settings)
     if not credential_available(client):
-        print("\n  Add your key to the repo-root .env file (it is gitignored):")
-        print(f"      echo '{env_var}=...' >> .env")
-        print("\n  To switch providers, set AGENTOPS_PROVIDER in .env")
-        print(f"      (currently '{settings.provider}'; valid: anthropic, openai)")
+        # A key for a *different* provider is the likeliest mistake, and we can
+        # see it from here — so say so rather than reporting only what is absent.
+        others = [
+            (provider, var)
+            for provider, var in CREDENTIAL_ENV_VARS.items()
+            if provider != settings.provider and os.environ.get(var)
+        ]
+        if others:
+            provider, var = others[0]
+            print(f"\n  But {var} IS set. Provider is '{settings.provider}'.")
+            print("  Add this line to .env to use the key you have:")
+            print(f"      AGENTOPS_PROVIDER={provider}")
+        else:
+            print("\n  Add your key to the repo-root .env file (it is gitignored):")
+            print(f"      echo '{env_var}=...' >> .env")
+            print(f"\n  Providers: {', '.join(sorted(CREDENTIAL_ENV_VARS))}")
         return 1
 
     print(f"  model       : {settings.model} (effort={settings.effort})")
@@ -51,10 +63,18 @@ async def main() -> int:
         except Exception as exc:  # noqa: BLE001 - informational, must not block preflight
             print(f"  available   : could not list ({type(exc).__name__})")
         else:
-            print(f"  available   : {', '.join(available[:12])}")
-            if settings.model not in available:
+            # Membership is checked against the full list; only the display is
+            # trimmed. Checking against a trimmed list is how this reported a
+            # model as unavailable that it then successfully called.
+            configured_ok = settings.model in available
+            shown = [m for m in available if settings.model in m][:3]
+            shown += [m for m in available if m not in shown][: 10 - len(shown)]
+            print(f"  reachable   : {len(available)} chat models, e.g. {', '.join(shown)}")
+            verdict = "reachable" if configured_ok else "NOT REACHABLE"
+            print(f"  configured  : {settings.model} -> {verdict}")
+            if not configured_ok:
                 print(
-                    f"\n  WARNING: {settings.model!r} is not in the list above. "
+                    f"\n  WARNING: {settings.model!r} is not in the reachable list. "
                     "Set AGENTOPS_MODEL in .env to one that is."
                 )
 
