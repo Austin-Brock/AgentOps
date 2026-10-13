@@ -1,28 +1,24 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
   "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
-      "excludeFiles": "{frontend/**,experiments/**,evaluations/results/**,backend/tests/**,backend/.venv/**,docs/**}"
+      "excludeFiles": "{frontend/**,public/**,experiments/**,evaluations/results/**,backend/tests/**,backend/.venv/**,docs/**}"
     }
   },
-
-  "rewrites": [
-    { "source": "/demo/:path*", "destination": "/api/index" },
-    { "source": "/health", "destination": "/api/index" },
-    { "source": "/tools", "destination": "/api/index" }
-  ],
-
   "headers": [
     {
       "source": "/demo/scenarios/:id/replay",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-transform" },
-        { "key": "X-Accel-Buffering", "value": "no" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-transform"
+        },
+        {
+          "key": "X-Accel-Buffering",
+          "value": "no"
+        }
       ]
     }
   ]

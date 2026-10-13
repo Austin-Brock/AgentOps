@@ -17,6 +17,9 @@ build/
 .vite/
 frontend/*.tsbuildinfo
 
+# Vite builds the frontend here; Vercel serves public/** from the CDN.
+/public/
+
 # Environment
 .env
 .env.local
@@ -31,3 +34,5 @@ frontend/*.tsbuildinfo
 *.log
 *.db
 *.sqlite3
+.vercel
+.env*

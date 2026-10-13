@@ -15,7 +15,11 @@ export default defineConfig({
       "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
     },
   },
-  build: { outDir: "dist", sourcemap: true },
+  // Built into ../public rather than ./dist: Vercel detects this repository as
+  // a backend-framework project and routes every unmatched path to the FastAPI
+  // function, so static assets have to live in `public/**` to be served by the
+  // CDN at all. `make web-build` writes to the same place for local parity.
+  build: { outDir: "../public", emptyOutDir: true, sourcemap: true },
   // jsdom so the page itself can be mounted and driven in tests, not only its
   // pure helpers. `globals` keeps the test files free of vitest imports for
   // describe/it/expect, matching how the Python suite reads.

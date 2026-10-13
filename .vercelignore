@@ -16,7 +16,6 @@
 backend/.venv/
 backend/tests/
 frontend/node_modules/
-frontend/dist/
 experiments/
 evaluations/results/
 docs/
