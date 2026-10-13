@@ -10,10 +10,18 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# Load .env into the process environment. Settings reads AGENTOPS_* on its own,
+# but provider SDKs read os.environ directly — the Anthropic client looks for
+# ANTHROPIC_API_KEY there and never consults a .env file. Without this, a key
+# sitting in .env is silently ignored. `override=False` means a key already
+# exported in the shell wins.
+load_dotenv(REPO_ROOT / ".env", override=False)
 
 
 class Settings(BaseSettings):

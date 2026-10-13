@@ -1,4 +1,4 @@
-.PHONY: install test lint fmt check demo eval serve
+.PHONY: install test lint fmt check demo preflight eval serve
 
 install:
 	cd backend && uv venv --python 3.11 .venv && uv pip install -e '.[dev]'
@@ -16,6 +16,9 @@ check: lint test
 
 demo:
 	cd backend && .venv/bin/python scripts/demo.py
+
+preflight:
+	cd backend && .venv/bin/python scripts/preflight.py
 
 eval:
 	cd backend && .venv/bin/python -m app.evaluation.run
