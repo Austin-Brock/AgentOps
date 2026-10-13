@@ -164,8 +164,12 @@ describe("the trace as rows", () => {
 
     const row = toRows([refused])[0];
     expect(row?.tone).toBe("refused");
-    expect(row?.label).toBe("refused");
-    expect(row?.body).toBe("permission_denied: missing scope finance:write");
+    expect(row?.label).toBe("refused in code");
+    expect(row?.text).toBe("apply_account_credit · permission_denied");
+    expect(row?.body).toContain("missing scope: finance:write");
+    // The payload's message is written for the model; it must not reach the page.
+    expect(row?.body).not.toContain("Do not retry");
+    expect(row?.text).not.toContain("Do not retry");
   });
 
   it("renders an event kind it has never heard of rather than dropping it", () => {

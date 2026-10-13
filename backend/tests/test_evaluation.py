@@ -24,9 +24,11 @@ def dataset():
 
 class TestDataset:
     def test_phase1_dataset_is_valid(self, dataset) -> None:
-        assert len(dataset) == 20
+        # 20 at the Phase 1 gate; S21 was added afterwards when the demo exposed
+        # that no live scenario exercised the permission check.
+        assert len(dataset) == 21
         assert dataset.phase == 1
-        assert len({s.id for s in dataset.scenarios}) == 20
+        assert len({s.id for s in dataset.scenarios}) == 21
 
     def test_every_scenario_has_expectations(self, dataset) -> None:
         for scenario in dataset.scenarios:

@@ -87,7 +87,7 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**In progress** — the first scenario works end to end (steps 1-5 of 8). Full plan: [`phase-1.5.md`](phase-1.5.md).
+**In progress** — all nine scenarios recorded and playable (steps 1-5 of 8). Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
 investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
@@ -96,6 +96,11 @@ with an opt-in live mode behind rate limits and a daily token budget.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
+
+Recording the scenarios exposed a gap in the Phase 1 evaluation itself: 19/19 passed without any
+live scenario exercising the code-level permission check, which was covered only offline by a
+scripted model. S21 was added to the dataset to close it, and it is the scenario the demo leads
+with — the agent attempts a tool it has no scope for, is denied in application code, and says so.
 
 Step 5 built the page: `frontend/` on Vite + React + TypeScript, no state library, with the
 rendering logic tested against the real recording and the page itself mounted in jsdom and driven

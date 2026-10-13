@@ -365,3 +365,28 @@ code {
     grid-column: 2;
   }
 }
+
+/* --- colophon ---
+   Last on the page because the trace should be read first, but it is the text
+   that matters most to anyone evaluating the project rather than the agent. */
+
+.colophon {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 68ch;
+}
+
+.colophon p {
+  margin: 0 0 12px;
+}
+
+.colophon strong {
+  color: var(--ink);
+}
+
+.colophon a {
+  color: var(--accent);
+}

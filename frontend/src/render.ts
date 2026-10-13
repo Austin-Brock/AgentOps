@@ -189,14 +189,17 @@ export function toRows(events: TraceEvent[]): Row[] {
       case "tool_failed":
       case "tool_refused": {
         const data = event.data as unknown as ToolOutcomeData;
-        const refused = event.kind === "tool_refused";
+        if (event.kind === "tool_refused") {
+          rows.push({ ...base, key: `${event.seq}`, ...refusalRow(data), tone: "refused" });
+          break;
+        }
+        const failed = event.kind === "tool_failed";
         rows.push({
           ...base,
           key: `${event.seq}`,
-          label: refused ? "refused" : event.kind === "tool_failed" ? "failed" : "returned",
+          label: failed ? "failed" : "returned",
           text: summarizeResult(data.tool, data.result),
-          body: refused ? refusalReason(data) : undefined,
-          tone: refused ? "refused" : event.kind === "tool_failed" ? "failed" : "result",
+          tone: failed ? "failed" : "result",
         });
         break;
       }
@@ -219,11 +222,26 @@ export function toRows(events: TraceEvent[]): Row[] {
   return rows;
 }
 
-/** Why a call was refused, in the words the agent itself was given. */
-function refusalReason(data: ToolOutcomeData): string {
+/**
+ * A refused call, composed from structured fields rather than from the error
+ * message.
+ *
+ * The message in the payload is written for the model — it ends "Do not retry
+ * this tool; find another way to help the customer or escalate" — and
+ * instructions aimed at an agent read as noise on a page aimed at a person.
+ * The tool name, the code, and the missing scope are the facts; the agent's own
+ * final reply explains the consequence better than this row could.
+ */
+function refusalRow(data: ToolOutcomeData): Pick<Row, "label" | "text" | "body"> {
   const missing = (data.result.missing_scopes as string[] | undefined) ?? [];
-  const code = data.error_code ?? "refused";
-  return missing.length > 0 ? `${code}: missing scope ${missing.join(", ")}` : code;
+  return {
+    label: "refused in code",
+    text: `${data.tool} · ${data.error_code ?? "refused"}`,
+    body:
+      missing.length > 0
+        ? `missing scope: ${missing.join(", ")} — denied before the tool could run`
+        : String(data.result.message ?? data.error_code ?? "refused"),
+  };
 }
 
 export interface Summary {

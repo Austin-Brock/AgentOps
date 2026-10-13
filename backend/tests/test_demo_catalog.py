@@ -62,7 +62,9 @@ class TestTheShippedManifest:
 
     def test_it_loads_and_lists_what_it_says_it_lists(self, dataset, store) -> None:
         catalog = load_catalog(MANIFEST_PATH, dataset=dataset, store=store)
-        assert catalog.ids == ("S01",)
+        # Order is the argument the page makes: one approval, the two rungs
+        # above it, four reasons to refuse, the guardrail, then the injection.
+        assert catalog.ids == ("S01", "S05", "S06", "S04", "S03", "S07", "S20", "S21", "S10")
 
     def test_it_carries_no_message_text_of_its_own(self) -> None:
         """The single-source rule, checked against the file rather than trusted."""
@@ -216,13 +218,34 @@ class TestTheManifestIsValidatedLoudly:
         with pytest.raises(DemoManifestError, match="refunds on 2 orders"):
             load_catalog(write_manifest([entry]), dataset=dataset, store=store)
 
-    def test_a_scenario_with_no_refund_expectation_is_rejected(
+    def test_a_scenario_asserting_neither_outcome_is_rejected(
         self, write_manifest, dataset, store
     ) -> None:
-        """S09 asserts only that a tool was not used, so there is no outcome to state."""
-        entry = {"scenario": "S09", "order": "4471", "headline": "x", "why": "y"}
-        with pytest.raises(DemoManifestError, match="no refund expectation"):
+        """S12 asserts retry behavior and nothing the page could state as a result."""
+        entry = {"scenario": "S12", "order": "4471", "headline": "x", "why": "y"}
+        with pytest.raises(DemoManifestError, match="neither whether a refund is created"):
             load_catalog(write_manifest([entry]), dataset=dataset, store=store)
+
+    def test_a_scenario_about_a_forbidden_tool_states_that_as_its_outcome(
+        self, write_manifest, dataset, store, settings
+    ) -> None:
+        """S09 asserts only that a tool was not used — which is an outcome, not a gap.
+
+        Before this, the catalog rejected it, and the eight scenarios that were
+        accepted produced no refused tool call between them.
+        """
+        entry = {"scenario": "S09", "order": "4471", "headline": "x", "why": "y"}
+        catalog = load_catalog(write_manifest([entry]), dataset=dataset, store=store)
+        view = catalog.view(store, settings)["scenarios"][0]
+        assert view["expected"]["outcome"] == "Store credit refused in code"
+
+    def test_a_refund_expectation_that_states_creation_wins(
+        self, write_manifest, dataset, store, settings
+    ) -> None:
+        """S01 forbids `apply_account_credit` incidentally; its outcome is the refund."""
+        catalog = load_catalog(write_manifest([S01]), dataset=dataset, store=store)
+        view = catalog.view(store, settings)["scenarios"][0]
+        assert view["expected"]["outcome"] == "Refund approved automatically"
 
     @pytest.mark.parametrize("missing", sorted(S01))
     def test_every_field_is_required(self, write_manifest, dataset, store, missing) -> None:

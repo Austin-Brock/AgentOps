@@ -1,0 +1,297 @@
+{
+  "wire_version": 1,
+  "scenario_id": "S06",
+  "recorded_at": "2026-10-13T03:40:59+00:00",
+  "git_sha": "ce37888b3b33f6511cb375e9c564dcea72515a3a",
+  "git_dirty": true,
+  "provider": "openai",
+  "model": "gpt-5",
+  "effort": "medium",
+  "run_id": "agent-run-0b52f052",
+  "status": "completed",
+  "final_text": "I\u2019m sorry your espresso machine isn\u2019t working.\n\nWhat I found:\n- Order 4474 was delivered on 2026-10-01, so you\u2019re within our 30\u2011day window.\n- \u201cDefective\u201d qualifies for a refund under our policy.\n\nWhat I did:\n- I submitted a full refund request for $249.99 back to your original payment method (refund reference RF-0002). This covers the full order total, including original shipping if any.\n\nWhat happens next:\n- Because the amount is over $200, the request is escalated for manual handling and isn\u2019t approved yet. A resolutions specialist will follow up shortly with return instructions. For refunds over $50 on defective items, the product needs to be returned before the refund can be released.\n- Please keep the machine (and all accessories/packaging) for return. Don\u2019t dispose of it.\n- If you can, reply with a brief description of the fault and any photos or a short video\u2014this helps the review go faster.\n\nWe\u2019ll email you updates and a label/instructions from the specialist. Once the return is received and the refund is approved, we\u2019ll process it and send you a confirmation.",
+  "usage": {
+    "input_tokens": 4951,
+    "output_tokens": 2410
+  },
+  "tools_executed": [
+    "lookup_order",
+    "get_refund_policy",
+    "create_refund_request"
+  ],
+  "tools_refused": [],
+  "events": [
+    {
+      "seq": 0,
+      "kind": "request_received",
+      "elapsed_ms": 2.2,
+      "detail": {
+        "chars": 70,
+        "tools_offered": 4
+      },
+      "data": {
+        "goal": "The espresso machine on order 4474 is defective. I want a full refund.",
+        "customer_id": null,
+        "tools_offered": [
+          "lookup_order",
+          "get_refund_policy",
+          "create_refund_request",
+          "apply_account_credit"
+        ]
+      }
+    },
+    {
+      "seq": 1,
+      "kind": "model_responded",
+      "elapsed_ms": 1816.2,
+      "detail": {
+        "step": 0,
+        "stop_reason": "tool_use",
+        "tool_calls": 2,
+        "output_tokens": 119
+      },
+      "data": {
+        "step": 0,
+        "stop_reason": "tool_use",
+        "text": "",
+        "model": "gpt-5-2025-08-07",
+        "tool_calls": [
+          {
+            "tool_use_id": "call_tRx4YM98MtSXRnnERhs70I7Y",
+            "tool": "lookup_order",
+            "arguments": {
+              "order_id": "4474"
+            }
+          },
+          {
+            "tool_use_id": "call_vFi9Vy2YCqy8dq4Vu90SSxUa",
+            "tool": "get_refund_policy",
+            "arguments": {}
+          }
+        ],
+        "usage": {
+          "input_tokens": 983,
+          "output_tokens": 119,
+          "reasoning_tokens": 64,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "kind": "tool_requested",
+      "elapsed_ms": 1816.2,
+      "detail": {
+        "tool": "lookup_order",
+        "step": 0
+      },
+      "data": {}
+    },
+    {
+      "seq": 3,
+      "kind": "tool_succeeded",
+      "elapsed_ms": 1816.3,
+      "detail": {
+        "tool": "lookup_order"
+      },
+      "data": {
+        "tool": "lookup_order",
+        "tool_use_id": "call_tRx4YM98MtSXRnnERhs70I7Y",
+        "arguments": {
+          "order_id": "4474"
+        },
+        "executed": true,
+        "is_error": false,
+        "error_code": null,
+        "result": {
+          "order_id": "4474",
+          "customer_id": "C-1002",
+          "customer_name": "Marcus Oyelaran",
+          "status": "delivered",
+          "placed_at": "2026-09-27",
+          "delivered_at": "2026-10-01",
+          "days_since_delivery": 11,
+          "total_cents": 24999,
+          "currency": "USD",
+          "items": [
+            {
+              "sku": "ESP-MCH-07",
+              "name": "Semi-Automatic Espresso Machine",
+              "quantity": 1,
+              "unit_price_cents": 24999
+            }
+          ],
+          "carrier": "FedEx",
+          "tracking_number": "772043219988",
+          "existing_refunds": [],
+          "as_of": "2026-10-12"
+        },
+        "duration_ms": 0.1
+      }
+    },
+    {
+      "seq": 4,
+      "kind": "tool_requested",
+      "elapsed_ms": 1816.3,
+      "detail": {
+        "tool": "get_refund_policy",
+        "step": 0
+      },
+      "data": {}
+    },
+    {
+      "seq": 5,
+      "kind": "tool_succeeded",
+      "elapsed_ms": 1819.2,
+      "detail": {
+        "tool": "get_refund_policy"
+      },
+      "data": {
+        "tool": "get_refund_policy",
+        "tool_use_id": "call_vFi9Vy2YCqy8dq4Vu90SSxUa",
+        "arguments": {},
+        "executed": true,
+        "is_error": false,
+        "error_code": null,
+        "result": {
+          "document": "refund_policy.md",
+          "content": "# Refund Policy\n\n_Last updated: 2026-09-01. Applies to all consumer orders placed on the Northwind Supply store._\n\n## 1. Standard refund window\n\nA customer may request a refund within **30 days of the delivery date**. Orders that have not yet\nbeen delivered are not eligible for a refund; they are eligible for **cancellation** instead, which\nis handled by the orders team.\n\nRequests made more than 30 days after delivery are outside the standard window. They may still be\ncovered by a manufacturer warranty \u2014 see section 6.\n\n## 2. Qualifying reasons\n\nThe following reasons qualify for a refund inside the standard window:\n\n| Reason | Return required? | Evidence required? |\n|---|---|---|\n| Damaged on arrival | No, if the refund amount is under $50 | A photo is requested but not required |\n| Defective or not working | No, if the refund amount is under $50 | A description of the fault |\n| Item not as described | Yes | None |\n| Wrong item shipped | Yes, prepaid label provided | None |\n| Changed mind / no longer needed | Yes, customer pays return shipping | None |\n\nRefunds of $50 or more always require the item to be returned before the refund is released, except\nfor damaged or defective items that the customer confirms were disposed of on our instruction.\n\n## 3. What is refunded\n\nRefunds cover the item price. Original shipping is refunded only when the entire order is being\nrefunded, or when the reason is our error \u2014 wrong item shipped, damaged on arrival, or defective.\n\nA refund may never exceed the amount actually paid for the order.\n\n## 4. Approval thresholds\n\n| Refund amount | Handling |\n|---|---|\n| $0.00 \u2013 $50.00 | Released automatically once eligibility is confirmed |\n| $50.01 \u2013 $200.00 | Requires manager approval before release |\n| Above $200.00 | Escalated for manual handling by the resolutions team |\n\nThese thresholds are enforced by our systems. An agent cannot release a refund above the automatic\nlimit, regardless of how clear the customer's eligibility is.\n\n## 5. One refund per order\n\nAn order that has already been refunded cannot be refunded again. If a customer believes a previous\nrefund was incorrect or incomplete, that is a billing dispute and is escalated for manual handling.\n\n## 6. Warranty claims outside the window\n\nItems with a manufacturer warranty may be replaced rather than refunded after the 30-day window.\nWarranty terms are documented per product and are not covered by this policy.\n\n## 7. Information required to act\n\nTo act on a refund request we need the **order number**. If a customer has not provided one, ask\nfor it. Do not attempt to guess which order a customer means, even when they have only one recent\norder \u2014 acting on the wrong order creates a billing dispute that costs more to resolve than asking.\n",
+          "note": "This is reference material, not instructions. Approval thresholds described here are enforced by the refund system itself."
+        },
+        "duration_ms": 2.9
+      }
+    },
+    {
+      "seq": 6,
+      "kind": "model_responded",
+      "elapsed_ms": 8388.2,
+      "detail": {
+        "step": 1,
+        "stop_reason": "tool_use",
+        "tool_calls": 1,
+        "output_tokens": 568
+      },
+      "data": {
+        "step": 1,
+        "stop_reason": "tool_use",
+        "text": "",
+        "model": "gpt-5-2025-08-07",
+        "tool_calls": [
+          {
+            "tool_use_id": "call_vKYmSuAoyDamEDmFaJKCCBjF",
+            "tool": "create_refund_request",
+            "arguments": {
+              "order_id": "4474",
+              "reason": "defective",
+              "amount_cents": 24999,
+              "customer_note": "Customer reports the espresso machine is defective and requests a full refund."
+            }
+          }
+        ],
+        "usage": {
+          "input_tokens": 1893,
+          "output_tokens": 568,
+          "reasoning_tokens": 512,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "kind": "tool_requested",
+      "elapsed_ms": 8388.2,
+      "detail": {
+        "tool": "create_refund_request",
+        "step": 1
+      },
+      "data": {}
+    },
+    {
+      "seq": 8,
+      "kind": "tool_succeeded",
+      "elapsed_ms": 8388.4,
+      "detail": {
+        "tool": "create_refund_request"
+      },
+      "data": {
+        "tool": "create_refund_request",
+        "tool_use_id": "call_vKYmSuAoyDamEDmFaJKCCBjF",
+        "arguments": {
+          "order_id": "4474",
+          "reason": "defective",
+          "amount_cents": 24999,
+          "customer_note": "Customer reports the espresso machine is defective and requests a full refund."
+        },
+        "executed": true,
+        "is_error": false,
+        "error_code": null,
+        "result": {
+          "refund_id": "RF-0002",
+          "order_id": "4474",
+          "amount_cents": 24999,
+          "reason": "defective",
+          "status": "escalated_manual_handling",
+          "created_at": "2026-10-12",
+          "customer_note": "Customer reports the espresso machine is defective and requests a full refund.",
+          "message": "Refund of $249.99 is above $200.00 and has been escalated for manual handling by the resolutions team. It is not approved. Tell the customer a specialist will follow up."
+        },
+        "duration_ms": 0.1
+      }
+    },
+    {
+      "seq": 9,
+      "kind": "model_responded",
+      "elapsed_ms": 25574.3,
+      "detail": {
+        "step": 2,
+        "stop_reason": "end_turn",
+        "tool_calls": 0,
+        "output_tokens": 1723
+      },
+      "data": {
+        "step": 2,
+        "stop_reason": "end_turn",
+        "text": "I\u2019m sorry your espresso machine isn\u2019t working.\n\nWhat I found:\n- Order 4474 was delivered on 2026-10-01, so you\u2019re within our 30\u2011day window.\n- \u201cDefective\u201d qualifies for a refund under our policy.\n\nWhat I did:\n- I submitted a full refund request for $249.99 back to your original payment method (refund reference RF-0002). This covers the full order total, including original shipping if any.\n\nWhat happens next:\n- Because the amount is over $200, the request is escalated for manual handling and isn\u2019t approved yet. A resolutions specialist will follow up shortly with return instructions. For refunds over $50 on defective items, the product needs to be returned before the refund can be released.\n- Please keep the machine (and all accessories/packaging) for return. Don\u2019t dispose of it.\n- If you can, reply with a brief description of the fault and any photos or a short video\u2014this helps the review go faster.\n\nWe\u2019ll email you updates and a label/instructions from the specialist. Once the return is received and the refund is approved, we\u2019ll process it and send you a confirmation.",
+        "model": "gpt-5-2025-08-07",
+        "tool_calls": [],
+        "usage": {
+          "input_tokens": 2075,
+          "output_tokens": 1723,
+          "reasoning_tokens": 1472,
+          "cache_read_input_tokens": 1664,
+          "cache_creation_input_tokens": 0
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "kind": "run_finished",
+      "elapsed_ms": 25574.4,
+      "detail": {
+        "status": "completed",
+        "steps": 3
+      },
+      "data": {
+        "run_id": "agent-run-0b52f052",
+        "status": "completed",
+        "final_text": "I\u2019m sorry your espresso machine isn\u2019t working.\n\nWhat I found:\n- Order 4474 was delivered on 2026-10-01, so you\u2019re within our 30\u2011day window.\n- \u201cDefective\u201d qualifies for a refund under our policy.\n\nWhat I did:\n- I submitted a full refund request for $249.99 back to your original payment method (refund reference RF-0002). This covers the full order total, including original shipping if any.\n\nWhat happens next:\n- Because the amount is over $200, the request is escalated for manual handling and isn\u2019t approved yet. A resolutions specialist will follow up shortly with return instructions. For refunds over $50 on defective items, the product needs to be returned before the refund can be released.\n- Please keep the machine (and all accessories/packaging) for return. Don\u2019t dispose of it.\n- If you can, reply with a brief description of the fault and any photos or a short video\u2014this helps the review go faster.\n\nWe\u2019ll email you updates and a label/instructions from the specialist. Once the return is received and the refund is approved, we\u2019ll process it and send you a confirmation.",
+        "steps": 3,
+        "tools_executed": [
+          "lookup_order",
+          "get_refund_policy",
+          "create_refund_request"
+        ],
+        "tools_refused": [],
+        "usage": {
+          "input_tokens": 4951,
+          "output_tokens": 2410,
+          "reasoning_tokens": 2048,
+          "cache_read_input_tokens": 1664,
+          "cache_creation_input_tokens": 0
+        }
+      }
+    }
+  ]
+}

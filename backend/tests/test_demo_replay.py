@@ -160,6 +160,41 @@ class TestStaleness:
             # Numbered from zero with no gaps, so the client can order on `seq`.
             assert [e["seq"] for e in replay.events] == list(range(len(replay.events)))
 
+    def test_at_least_one_recording_shows_a_tool_call_refused_in_code(self) -> None:
+        """The page's central claim needs a real run that demonstrates it.
+
+        The first eight recordings contained no refusal at all: on every one of
+        them the agent read the policy and stayed inside its authority, which is
+        good behavior and a terrible demonstration. S21 was added to the dataset
+        for exactly this, and this test exists so a future re-record cannot
+        quietly lose it.
+        """
+        index = ReplayIndex()
+        refusals = {
+            scenario_id: [
+                event["data"]["error_code"]
+                for event in index.load(scenario_id).events
+                if event["kind"] == "tool_refused"
+            ]
+            for scenario_id in sorted(index.ids())
+        }
+        assert any(codes for codes in refusals.values()), (
+            "no shipped recording contains a refused tool call, so the page cannot show "
+            f"a guardrail firing in code. Re-record S21. Refusals found: {refusals}"
+        )
+        assert "permission_denied" in [code for codes in refusals.values() for code in codes]
+
+    def test_every_recording_replays_in_a_watchable_time(self) -> None:
+        """Capped pacing has to hold for the slow runs, not only the fast ones."""
+        index = ReplayIndex()
+        for scenario_id in sorted(index.ids()):
+            replay = index.load(scenario_id)
+            total_s = sum(pacing(replay.events))
+            assert 1 < total_s < 12, (
+                f"{scenario_id} replays in {total_s:.1f}s (the real run took "
+                f"{replay.duration_ms / 1000:.1f}s)"
+            )
+
     def test_the_recordings_live_where_the_index_looks(self) -> None:
         assert REPLAY_DIR.name == "replays"
         assert REPLAY_DIR.parent.name == "demo"

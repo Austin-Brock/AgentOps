@@ -153,6 +153,21 @@ describe("before the run", () => {
   });
 });
 
+describe("the colophon", () => {
+  it("says what the project is and links to the source", async () => {
+    render(<App />);
+    expect(await screen.findByText(/without an agent framework/)).toBeTruthy();
+    expect(screen.getByText(/enforced inside the refund tool/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: /Source, design decisions/ });
+    expect(link.getAttribute("href")).toContain("github.com/Austin-Brock/AgentOps");
+  });
+
+  it("says the run is recorded rather than implying it is live", async () => {
+    render(<App />);
+    expect(await screen.findByText(/A recorded run of the real agent/)).toBeTruthy();
+  });
+});
+
 describe("during the run", () => {
   it("asks the server for this scenario by id, never by message", async () => {
     render(<App />);
@@ -246,7 +261,7 @@ describe("the refusal", () => {
     };
     await act(async () => FakeEventSource.last!.emit(refusal));
 
-    const row = screen.getByText(/missing scope finance:write/).closest(".row");
+    const row = screen.getByText(/missing scope: finance:write/).closest(".row");
     // The refusal is the feature, so it must not look like every other row.
     expect(row?.className).toContain("row-refused");
   });

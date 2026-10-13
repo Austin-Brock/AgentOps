@@ -46,6 +46,16 @@ OUTCOME_PHRASES = {
 REFUND_CREATED = "Refund created"
 NO_REFUND = "No refund created"
 
+#: Scenarios whose point is a tool the agent is not authorized to execute. The
+#: outcome there is not about a refund at all, so it is derived from the
+#: `tools_not_executed` expectation instead. S09 is the only demonstration in
+#: the project of a guardrail firing *in code* rather than in the model's
+#: reasoning, which is the claim the whole repository rests on — so the catalog
+#: has to be able to state it.
+FORBIDDEN_TOOL_PHRASES = {
+    "apply_account_credit": "Store credit refused in code",
+}
+
 
 class DemoManifestError(Exception):
     """The manifest is malformed — a bug in the demo, not a failing agent."""
@@ -229,7 +239,8 @@ def _check_order(scenario_id: str, order_id: str, scenario: Scenario, store: Dat
     if store.get_order(order_id) is None:
         raise DemoManifestError(f"entry {scenario_id}: order {order_id!r} is not in the seed data")
 
-    expected_order = _refund_expectation(scenario_id, scenario).get("order_id")
+    refund = _refund_expectation(scenario_id, scenario, required=False)
+    expected_order = refund.get("order_id") if refund else None
     if expected_order is not None and str(expected_order) != order_id:
         raise DemoManifestError(
             f"entry {scenario_id}: manifest shows order {order_id!r} but the scenario's "
@@ -237,12 +248,16 @@ def _check_order(scenario_id: str, order_id: str, scenario: Scenario, store: Dat
         )
 
 
-def _refund_expectation(scenario_id: str, scenario: Scenario) -> dict[str, Any]:
+def _refund_expectation(
+    scenario_id: str, scenario: Scenario, *, required: bool = True
+) -> dict[str, Any]:
     refund = scenario.expect.get("refund")
     if refund is None:
+        if not required:
+            return {}
         raise DemoManifestError(
-            f"entry {scenario_id}: the scenario has no refund expectation, so the page "
-            "has no outcome to state. Demo scenarios must assert a refund outcome"
+            f"entry {scenario_id}: the scenario asserts neither a refund outcome nor a "
+            "forbidden tool, so the page has no outcome to state"
         )
     if isinstance(refund, list):
         raise DemoManifestError(
@@ -260,12 +275,27 @@ def _expected_outcome(scenario: Scenario) -> str:
     reason behind the outcome is not derivable and stays hand-written; the
     outcome itself is not ours to phrase freely.
     """
-    refund = _refund_expectation(scenario.id, scenario)
-    if "created" not in refund:
-        raise DemoManifestError(
-            f"entry {scenario.id}: refund expectation does not say whether a refund is "
-            "created, so the expected outcome cannot be derived"
-        )
+    # A refund expectation is used only where it actually states whether a
+    # refund was created. S21 asserts a ceiling but not creation — deliberately,
+    # since asserting creation there would over-fit one observed run (DD-010) —
+    # so its outcome comes from the tool it is forbidden to execute instead.
+    refund = _refund_expectation(scenario.id, scenario, required=False)
+    if "created" in refund:
+        return _refund_outcome(scenario, refund)
+
+    # Most scenarios forbid `apply_account_credit` incidentally — S01 and S10
+    # both do — so this is only reached when the refusal is the whole point.
+    for tool in scenario.expect.get("tools_not_executed", []):
+        if tool in FORBIDDEN_TOOL_PHRASES:
+            return FORBIDDEN_TOOL_PHRASES[tool]
+
+    raise DemoManifestError(
+        f"entry {scenario.id}: the scenario asserts neither whether a refund is created "
+        "nor a forbidden tool, so the page has no outcome to state"
+    )
+
+
+def _refund_outcome(scenario: Scenario, refund: dict[str, Any]) -> str:
     if not refund["created"]:
         return NO_REFUND
 

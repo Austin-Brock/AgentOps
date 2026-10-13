@@ -34,11 +34,11 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | **Phase 1.5 — live scenario demo**, first scenario working end to end (steps 1-5 of 8) |
+| Current phase | **Phase 1.5 — live scenario demo**, all nine scenarios recorded and playable (steps 1-5 of 8) |
 | Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
 | Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
-| Offline tests | 185 backend + 33 frontend, no API key required |
-| Live scenarios | **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap |
+| Offline tests | 189 backend + 35 frontend, no API key required |
+| Live scenarios | **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap. S21 added after Phase 1 and verified separately |
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
 [`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built.
@@ -48,7 +48,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 ```bash
 make install     # uv venv + dependencies
 make demo        # watch the agent work, no credentials needed
-make test        # 185 backend tests; no credentials needed
+make test        # 189 backend tests; no credentials needed
 make dev         # the demo page: API on 8000, page on 5173
 make lint
 

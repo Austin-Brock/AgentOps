@@ -122,7 +122,44 @@ export default function App() {
 
       <Trace events={events} status={status} />
       <SummaryBar events={events} scenario={selected} />
+      <Colophon />
     </main>
+  );
+}
+
+const REPO = "https://github.com/Austin-Brock/AgentOps";
+
+/**
+ * What the visitor is actually looking at.
+ *
+ * Without this the page explains each scenario well and never says why the
+ * project exists. For anyone evaluating the work rather than the agent, this is
+ * the most important text on it.
+ */
+function Colophon() {
+  return (
+    <footer className="colophon">
+      <p>
+        <strong>What this is.</strong> A customer support agent built without an agent framework —
+        the loop, the tool schemas, the authorization check and the step ceiling are all ordinary
+        Python you can read. Safety rules live in application code rather than in the prompt: the
+        $50 automatic and $200 manager refund ceilings are enforced inside the refund tool, and the
+        agent is deliberately offered a tool it has no scope to execute, so you can watch the denial
+        happen.
+      </p>
+      <p>
+        <strong>What you are watching.</strong> A recorded run of the real agent against{" "}
+        <code>gpt-5</code>, replayed at the pace it happened. The scenarios come from the same
+        evaluation dataset the test suite grades against, so the demo and the measurements cannot
+        disagree. Nothing here is scripted: the agent chose each tool from what the previous result
+        told it.
+      </p>
+      <p>
+        <a href={REPO} target="_blank" rel="noreferrer">
+          Source, design decisions, and the evaluation results →
+        </a>
+      </p>
+    </footer>
   );
 }
 
