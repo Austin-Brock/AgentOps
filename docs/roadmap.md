@@ -87,12 +87,14 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**In progress** — all nine scenarios recorded and playable (steps 1-5 of 8). Full plan: [`phase-1.5.md`](phase-1.5.md).
+**Deployed** — live at [agentops-weld.vercel.app](https://agentops-weld.vercel.app), nine
+scenarios, no credential in production. Live mode is the remaining piece. Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
 investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
 scenarios drawn from the Phase 1 evaluation dataset, replayed from recorded real runs by default
-with an opt-in live mode behind rate limits and a daily token budget.
+with an opt-in live mode behind rate limits and a daily token budget. Hosted on Vercel rather than
+DigitalOcean (DD-014), since the page has no database and no credential.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.

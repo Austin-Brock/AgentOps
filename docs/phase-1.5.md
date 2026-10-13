@@ -20,7 +20,7 @@ which is most people.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Hosting | DigitalOcean App Platform | Already the deployment target named in the stack |
+| Hosting | ~~DigitalOcean App Platform~~ → **Vercel** (DD-014) | The demo is a static page plus a read-only endpoint with no database and no credential; App Platform's managed Postgres and Valkey are Phase 2's problem, not this one |
 | Input | **Fixed scenarios only** — no free text at launch | A public endpoint that accepts arbitrary text is both a cost tap and an injection surface. Fixed scenarios ship first; free text arrives once the budget controls have proven themselves |
 | Default mode | **Replay** of recorded real runs | Zero cost, instant, deterministic, and works with no credentials — so the demo cannot break because a key expired |
 | Live mode | Opt-in button, rate-limited and budget-capped | Replay alone invites the question "is this just a video?" One real run answers it |
@@ -191,19 +191,28 @@ Three things worth knowing about the implementation:
   agent did.
 
 The Vite dev server proxies `/demo` to the API, so there is no CORS configuration in development,
-and in production both halves sit behind one origin on App Platform. `make dev` runs both.
+and in production both halves sit behind one origin on Vercel. `make dev` runs both.
 
 ### Deployment
 
-One DigitalOcean App Platform app, two components:
+**Live at [agentops-weld.vercel.app](https://agentops-weld.vercel.app).** One Vercel project
+(DD-014): the Vite build served from the CDN out of `public/`, and the existing FastAPI app as a
+single Python function. Both halves sit behind one origin, so there is no CORS configuration in
+production and none in development either — the dev server proxies instead.
 
-- **Static site** — the Vite build of `frontend/`
-- **Web service** — FastAPI, with `/health` as the health check (it already exists)
+**No credential is deployed.** Replay reads recorded runs from disk and never calls a provider, so
+there is nothing for a visitor to spend and nothing to leak. Step 6 is what introduces
+`OPENAI_API_KEY`, together with the controls that make a public key-holding endpoint safe — and it
+also has to close `POST /runs`, which the catch-all routing now exposes and which would otherwise
+be exactly the open prompt field DD-011 exists to prevent.
 
-Secrets as encrypted app-level environment variables: `OPENAI_API_KEY`, plus
-`AGENTOPS_PROVIDER=openai` and `AGENTOPS_MODEL=gpt-5`. CORS restricted to the deployed origin.
-A `Dockerfile` for the backend, and `docker-compose.yml` for local parity — the latter is
-groundwork Phase 2 needs anyway when PostgreSQL arrives.
+Three things broke on the way, each with a successful build log and none of them visible locally: a
+rewrite destination becoming the path FastAPI sees, a stale project setting surviving the removal
+of its key from `vercel.json`, and static assets being read from the repository rather than from
+build output. All three are recorded in DD-014, including why `public/` is committed.
+
+A `Dockerfile` and `docker-compose.yml` are still worth having for local parity — groundwork Phase 2
+needs when PostgreSQL arrives — but they are no longer on the critical path to a public page.
 
 ## Acceptance criteria
 
@@ -252,5 +261,10 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    pure and tested against the real recording; the page itself is mounted in jsdom and driven by
    a fake `EventSource`, which is how the progressive arrival is asserted. 33 tests.
 6. Live endpoint with every control from the table above, and tests that each control actually fires
-7. Dockerfile, docker-compose, DO App Platform spec
-8. Deploy, then re-record replays against the deployed model
+7. ~~Dockerfile, docker-compose, DO App Platform spec~~ **Superseded by DD-014.** Deployed to
+   Vercel instead; Docker and compose remain useful for Phase 2's local parity but were not needed
+   to ship a public page.
+8. ~~Deploy, then re-record replays against the deployed model~~
+   **Done.** Live, public, and verified after a push-triggered build rather than only after the
+   CLI deploy that preceded it. The recordings carry `git_dirty: true` because they predate the
+   commits that deployed them; the flag is accurate and re-recording is cosmetic.

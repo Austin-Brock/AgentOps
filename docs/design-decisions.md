@@ -198,8 +198,8 @@ checks that had been asserting nothing while appearing to pass.
 ## DD-011 — Pull the demo UI ahead of memory
 
 **Decision:** insert a deployed scenario demo (Phase 1.5) between Phases 1 and 2, with fixed
-scenarios only, replay by default, and a rate-limited live mode. Hosted on DigitalOcean App
-Platform.
+scenarios only, replay by default, and a rate-limited live mode. ~~Hosted on DigitalOcean App
+Platform.~~ **Hosting superseded by DD-014: Vercel.** Everything else in this entry stands.
 
 **Why:** after Phase 1 the only ways to see the agent work were reading the code or running
 `make demo` in a terminal. Both filter out almost everyone. The guardrail behavior in particular
@@ -319,3 +319,43 @@ must not be a known gap, must assert a refund outcome on exactly one order, and 
 both in the seed data and the one the scenario's refund expectation names. Each of those failures
 would otherwise reach a public page as a dead button, a stale price, or a demonstration of a
 control the project does not yet have.
+
+---
+
+## DD-014 — Vercel instead of DigitalOcean App Platform for the demo
+
+**Decision:** deploy the Phase 1.5 demo to Vercel as one project — the Vite build served from the
+CDN, the existing FastAPI app as a single Python function. Supersedes the hosting choice in DD-011.
+DigitalOcean remains the target for the stateful deployment Phase 2 onward needs.
+
+**Why:** the demo is a static page plus a read-only endpoint that streams a 40KB JSON file. It has
+no database, no queue, no background worker, and — crucially for a public page — no credential at
+all. App Platform's value is managed Postgres and Valkey alongside the service, none of which this
+phase uses, against roughly $5–12/month and a Dockerfile to maintain. Vercel serves it for nothing
+on a free plan, and the deciding detail was verified rather than assumed: Python functions support
+streaming responses, so the SSE replay works without re-architecting anything.
+
+**What it costs:** two hosting providers eventually, since Phase 2 brings PostgreSQL and Vercel is
+the wrong shape for it. That is a real cost and it is deferred deliberately — the alternative was
+standing up managed infrastructure for a page that reads files.
+
+**What the deployment taught, which is the part worth keeping:** three consecutive failures, each
+invisible from local verification and each with a successful build log.
+
+1. **A rewrite's destination is now the path the application sees.** `/demo/:path* → /api/index`
+   made FastAPI answer a request for `/api/index` and return its own 404. The widely copied
+   FastAPI-on-Vercel pattern of rewriting everything to the function entry point depends on
+   behavior that has changed, and it now fails as a framework 404 rather than a platform error.
+2. **Omitting a key from `vercel.json` does not reset it.** The first deploy wrote
+   `outputDirectory: frontend/dist` into the project; a later deploy that removed the key inherited
+   the stale value and built to a directory Vite no longer wrote to.
+3. **For a backend-framework preset, static assets are served from `public/**` as committed, not
+   from build output.** A CLI deploy uploads the locally built directory and works; a deploy
+   triggered by a git push has no `public/` unless it is committed — so it builds successfully and
+   serves nothing. `public/` is therefore committed, which is build output in version control and a
+   cost paid deliberately: the alternative is two paths to production that behave differently.
+
+**Consequence:** a push to `main` deploys. The deploy that is verified and the deploy that replaces
+it are not necessarily the same build, which is how a site confirmed working became a broken one
+with nothing in between but a `git push`. Verification now happens against the production alias
+after the push-triggered build, not against the one the CLI just made.
