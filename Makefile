@@ -1,4 +1,4 @@
-.PHONY: install test lint fmt check demo preflight eval eval-one serve
+.PHONY: install test lint fmt check demo preflight eval eval-one serve record-replays
 
 install:
 	cd backend && uv venv --python 3.11 .venv && uv pip install -e '.[dev]'
@@ -30,3 +30,11 @@ eval:
 
 serve:
 	cd backend && .venv/bin/uvicorn app.main:app --reload
+
+# Spends money: one real run per demo scenario, roughly 5,800 tokens each.
+# Run it at the close of every phase that changes agent behavior — a stale
+# replay keeps working while demonstrating the old agent.
+#   make record-replays ARGS="--dry-run"
+#   make record-replays ARGS="--only S01"
+record-replays:
+	cd backend && .venv/bin/python scripts/record_replays.py $(ARGS)

@@ -87,7 +87,7 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**In progress** — steps 1 and 2 of 8 complete. Full plan: [`phase-1.5.md`](phase-1.5.md).
+**In progress** — steps 1-4 of 8 complete for the first scenario. Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
 investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
@@ -96,6 +96,11 @@ with an opt-in live mode behind rate limits and a daily token budget.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
+
+Steps 3 and 4 made the demo work with no credentials at all: one real `gpt-5` run per scenario is
+recorded to disk with the git SHA and model it was captured under, and served back over SSE at the
+pace it originally happened. `make record-replays` runs at the close of every phase that changes
+agent behavior — a stale replay does not break, it keeps working while demonstrating the old agent.
 
 Step 2 built the scenario catalog: a presentation-only manifest joined to the evaluation
 dataset's messages and the seed data's order facts, with the id-not-message control enforced in

@@ -1,6 +1,6 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** in progress — steps 1 and 2 complete. Building one scenario end to end (S01) before
+**Status:** in progress — steps 1 to 4 complete for S01. Building one scenario end to end before
 widening to eight, so the seams are proven on one button rather than discovered on eight.
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
@@ -125,7 +125,14 @@ can still be built on top of the callback if the UI turns out to want one.
 
 A `make record-replays` target runs each demo scenario against the real model and writes a full
 trace to `data/demo/replays/{scenario_id}.json`. Each file records the **git SHA, model id, and
-timestamp** it was captured under.
+timestamp** it was captured under — plus whether the working tree was dirty, since a SHA that does
+not fully describe the code should say so.
+
+Measured on the first real recording of S01 against `gpt-5`: **12 events, 3 tools, 6,206 in /
+2,167 out, 22.1s wall clock.** The two longest pauses were 7.6s (deciding to create the refund)
+and 10.6s (writing the final reply), which is why replay gaps are capped at 1.5s: uncapped, a
+visitor spends 22 seconds on one scenario with 18 of them watching nothing. Capped, it replays in
+5.4s and still reads as deliberation rather than a dump.
 
 **Staleness is the real risk here.** When Phase 2 changes the system prompt, every recorded
 replay still shows the old behavior, and a public page quietly demonstrating last month's agent
@@ -200,8 +207,15 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    joins it to the dataset's message and the seed data's order facts; `app/demo/wire.py` is the
    one event encoder the recorder, both endpoints, and the frontend share. 42 tests in
    `test_demo_catalog.py`, `test_demo_wire.py`, and `test_api.py`.
-3. Replay recorder, `make record-replays`, and the staleness test
-4. SSE replay endpoint
+3. ~~Replay recorder, `make record-replays`, and the staleness test~~
+   **Done.** `app/demo/replay.py` holds the format, `scripts/record_replays.py` records against
+   the real model, and three staleness tests hold: every listed scenario has a recording, no
+   recording is orphaned, and every shipped file loads and ends in `run_finished`.
+4. ~~SSE replay endpoint~~
+   **Done.** `GET /demo/scenarios/{id}/replay`, paced from the recorded `elapsed_ms` with gaps
+   capped at 1.5s. Progressive delivery verified against a real uvicorn server with `curl -N`,
+   not only through `TestClient` — which buffers, and would have reported a working stream
+   either way.
 5. Frontend: picker, trace view, summary bar — against replay only
 6. Live endpoint with every control from the table above, and tests that each control actually fires
 7. Dockerfile, docker-compose, DO App Platform spec

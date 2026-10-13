@@ -28,6 +28,7 @@ import yaml
 
 from app.config import REPO_ROOT, Settings, get_settings
 from app.data.store import DataStore
+from app.demo.replay import ReplayIndex
 from app.evaluation.scenario import Dataset, Scenario, load_dataset
 
 MANIFEST_PATH = REPO_ROOT / "data" / "demo" / "scenarios.yaml"
@@ -66,7 +67,9 @@ class DemoScenario:
     message: str
     expected_outcome: str
 
-    def view(self, store: DataStore, settings: Settings) -> dict[str, Any]:
+    def view(
+        self, store: DataStore, settings: Settings, replays: ReplayIndex | None = None
+    ) -> dict[str, Any]:
         """The JSON the page renders.
 
         Hydrated per request rather than at load: a live run creates a refund,
@@ -99,6 +102,9 @@ class DemoScenario:
                 "prior_refunds": len(store.refunds_for_order(order.order_id)),
             },
             "expected": {"outcome": self.expected_outcome, "why": self.why},
+            # When the recording was captured and by which model, so a stale
+            # replay is visible on screen rather than invisible (DD-011).
+            "replay": (replays or ReplayIndex()).meta(self.id),
         }
 
 
@@ -125,14 +131,20 @@ class DemoCatalog:
         """The only way a demo run gets its prompt."""
         return self.resolve(scenario_id).message
 
-    def view(self, store: DataStore, settings: Settings | None = None) -> dict[str, Any]:
+    def view(
+        self,
+        store: DataStore,
+        settings: Settings | None = None,
+        replays: ReplayIndex | None = None,
+    ) -> dict[str, Any]:
         settings = settings or get_settings()
+        replays = replays or ReplayIndex()
         return {
             "version": self.version,
             # Business time is simulated against a fixed date (DD-008), so
             # "delivered 6 days ago" needs that date on screen beside it.
             "simulated_today": settings.simulated_today.isoformat(),
-            "scenarios": [scenario.view(store, settings) for scenario in self.scenarios],
+            "scenarios": [scenario.view(store, settings, replays) for scenario in self.scenarios],
         }
 
 
