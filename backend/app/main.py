@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from app.agents.support_agent import AgentRun, SupportAgent
 from app.config import get_settings
 from app.data.store import DataStore
+from app.demo.catalog import get_catalog
 from app.llm.errors import CREDENTIAL_ENV_VARS, ProviderError
 from app.llm.factory import build_model_client, credential_available
 from app.tools.base import ToolContext
@@ -100,6 +101,17 @@ async def list_tools() -> dict[str, Any]:
         ],
         "advertised_to_model": [spec["name"] for spec in _registry.specs(ctx)],
     }
+
+
+@app.get("/demo/scenarios")
+async def demo_scenarios() -> dict[str, Any]:
+    """What a visitor may click, with the order facts looked up fresh.
+
+    No message is accepted here or anywhere else in the demo: the client sends a
+    scenario id and the server resolves the prompt from the evaluation dataset
+    (DD-011). The list is small, fixed, and the only thing a run can be about.
+    """
+    return get_catalog().view(_store, get_settings())
 
 
 @app.post("/runs", response_model=RunResponse)

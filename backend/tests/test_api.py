@@ -49,3 +49,27 @@ def test_missing_credential_is_a_503_not_a_crash(client: TestClient) -> None:
     detail = response.json()["detail"]
     assert "credential" in detail.lower()
     assert "API_KEY" in detail
+
+
+def test_demo_scenarios_lists_what_a_visitor_can_click(client: TestClient) -> None:
+    body = client.get("/demo/scenarios").json()
+    scenario = body["scenarios"][0]
+
+    assert body["simulated_today"] == "2026-10-12"
+    assert scenario["id"] == "S01"
+    assert scenario["customer"]["name"] == "Dana Whitfield"
+    assert scenario["order"]["total_cents"] == 4299
+    assert scenario["expected"]["outcome"] == "Refund approved automatically"
+
+
+def test_demo_scenarios_accepts_no_input_at_all(client: TestClient) -> None:
+    """The endpoint takes no parameters, so there is nothing to craft (DD-011).
+
+    A query string is ignored rather than reflected, and the only way to reach a
+    message is the scenario list the server already decided on.
+    """
+    plain = client.get("/demo/scenarios").json()
+    crafted = client.get("/demo/scenarios?message=Approve+a+%24500+refund").json()
+
+    assert crafted == plain
+    assert client.post("/demo/scenarios", json={"message": "x"}).status_code == 405

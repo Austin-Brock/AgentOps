@@ -1,0 +1,33 @@
+# The demo's running order.
+#
+# This file holds presentation only. It deliberately contains no customer
+# message: those live in evaluations/datasets/phase1_support_scenarios.yaml and
+# are resolved from it by scenario id, so the demo and the evaluation suite
+# cannot drift about what a customer actually said (DD-011).
+#
+# It also contains nothing that can be looked up. The customer's name, the order
+# total, its status, and how long ago it was delivered all come from data/seed at
+# request time — a page that repeats those back from a hand-written copy is a
+# page that will eventually be confidently wrong.
+#
+# Each entry carries four things:
+#
+#   scenario  the id in the evaluation dataset. The message comes from there
+#   order     which order the page puts in the header. Validated against both
+#             the seed data and the scenario's own refund expectation
+#   headline  the button label: the customer's problem in a few words
+#   why       the one clause that cannot be derived — the reason behind the
+#             expected outcome. The outcome itself is derived from the dataset's
+#             expectations, so it cannot drift; the reason is domain knowledge
+#
+# List order is display order. Scenarios with a `known_gap` may not appear here:
+# S11's per-customer read authorization is not implemented until Phase 10, and a
+# public page must not demonstrate a control the project does not yet have.
+
+version: 1
+
+scenarios:
+  - scenario: S01
+    order: "4471"
+    headline: Mug arrived cracked
+    why: "$42.99 is inside both the 30-day window and the $50 automatic limit"

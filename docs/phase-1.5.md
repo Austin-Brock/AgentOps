@@ -1,6 +1,7 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** in progress — step 1 of 8 complete (the event callback in the agent loop).
+**Status:** in progress — steps 1 and 2 complete. Building one scenario end to end (S01) before
+widening to eight, so the seams are proven on one button rather than discovered on eight.
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
 intact means the `phase-1` tag and every document that references Phases 2–10 stay correct.
@@ -74,6 +75,11 @@ Events arrive progressively rather than all at once — watching the agent decid
 On the guardrail scenarios the refused call renders in a different colour with the reason
 (`permission_denied: missing scope finance:write`), because the refusal is the feature.
 
+The header also carries the dataset's **expected** outcome above the trace's **actual** one
+(DD-013). Several scenarios have more than one legitimate path, so a pre-printed label would
+eventually contradict the trace below it; a prediction being verified is more convincing than a
+label, and on the runs that take the other path the page says so.
+
 ## Technical scope
 
 ### Backend
@@ -83,13 +89,17 @@ each was allowed, and token usage. Three additions:
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /demo/scenarios` | Personas, their orders, and the scenario list, derived from the eval dataset and the seed data |
+| `GET /demo/scenarios` | Personas, their orders, and the scenario list, derived from the eval dataset and the seed data — **built** |
 | `GET /demo/scenarios/{id}/replay` | Recorded run, streamed as events (SSE) |
 | `POST /demo/scenarios/{id}/run` | Live run, streamed; rate-limited and budget-capped |
 
 **The client sends a scenario id, never a message.** Messages are resolved server-side from the
 dataset. That single property is what makes "fixed scenarios" an actual control rather than a UI
 convention — a crafted request cannot smuggle in its own prompt.
+
+Enforced in `DemoCatalog.resolve()`, which accepts an id and raises on anything else, and which is
+the only path to a demo run's prompt. The scenario list is presentation-only and carries no message
+text of its own (DD-013), so there is nowhere else for a prompt to come from.
 
 **Streaming required a change to the agent loop** — `SupportAgent.run()` returned only when the
 run completed, so there was nothing to stream. **Resolved as DD-012: the callback, attached to the
@@ -185,7 +195,11 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    stream/trace identity, the payloads the page draws, a streamed refusal with its missing scope,
    JSON-serializability of every event, an ending on all four exit paths, and a failing subscriber
    that does not fail the run.
-2. `GET /demo/scenarios` derived from the eval dataset, with tests
+2. ~~`GET /demo/scenarios` derived from the eval dataset, with tests~~
+   **Done.** DD-013. `data/demo/scenarios.yaml` holds presentation only; `app/demo/catalog.py`
+   joins it to the dataset's message and the seed data's order facts; `app/demo/wire.py` is the
+   one event encoder the recorder, both endpoints, and the frontend share. 42 tests in
+   `test_demo_catalog.py`, `test_demo_wire.py`, and `test_api.py`.
 3. Replay recorder, `make record-replays`, and the staleness test
 4. SSE replay endpoint
 5. Frontend: picker, trace view, summary bar — against replay only

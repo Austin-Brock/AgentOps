@@ -271,3 +271,51 @@ the caller to inspect.
 completed, truncated, provider refusal, step ceiling — record it in one place. No run can now end
 without a subscriber seeing it end. The HTTP `/runs` response is unchanged: it renders `detail`
 only, so `data` stays out of the existing API until the demo endpoints ask for it.
+
+---
+
+## DD-013 — The demo states an expectation it does not author
+
+**Decision:** the demo's scenario list lives in `data/demo/scenarios.yaml` and holds presentation
+only — which scenarios appear, in what order, a short headline, and the one clause of reasoning
+that cannot be derived. It holds no customer message and nothing that can be looked up. The
+expected *outcome* is derived from the evaluation dataset's own expectations; the page renders it
+beside the actual outcome taken from the run's trace.
+
+**Alternative considered:** annotate the evaluation dataset with a `demo:` block per scenario. One
+file, no possibility of drift. Rejected because it gives a file whose job is expectations a second
+job as a public page's layout, and makes an edit to a test able to change what a visitor sees.
+DD-011's actual requirement is that the *message* is single-sourced, and it is: the manifest names
+a scenario id and the message is resolved from the dataset. A test asserts the manifest contains no
+message text, and another asserts every id it names exists and is not a `known_gap`.
+
+**Why the outcome is derived rather than written:** a hand-written label reading "refund approved
+automatically" survives the day the expectation changes to pending, and a public page confidently
+describing behavior the agent no longer has is worse than no page. So `auto_approved`,
+`pending_manager_approval`, and `escalated_manual_handling` map to phrases in code, an unmapped
+status is a load-time failure rather than a raw enum on screen, and the only hand-written sentence
+is the reason — which is domain knowledge and genuinely not derivable.
+
+**Why expected and actual are shown separately:** several scenarios have more than one legitimate
+path. On the out-of-window refund the agent may decline from the policy, or request the refund and
+be rejected by `create_refund_request`; both satisfy the evaluation. A page that pre-labels the
+outcome would eventually contradict the trace printed underneath it. Showing the dataset's
+expectation above the trace's result turns the demo into a prediction being verified, and on the
+occasions where a live run takes the other path, the page reports that honestly rather than only
+ever agreeing with itself.
+
+**Nothing typed that can be looked up:** the customer's name, the order total and status, how long
+ago it was delivered, and how many refunds already exist are hydrated from `data/seed` per request.
+Per request rather than at startup, because a live run creates a refund and the next page load has
+to show it.
+
+**Demo runs pass no `customer_id`,** matching how the evaluation suite runs the same scenarios. The
+persona is presented as whose order it is — which is what the agent discovers through
+`lookup_order` — rather than handed to the agent up front. A demo run that differs from the
+evaluated run is a demo that proves something other than what was measured.
+
+**Consequence:** the manifest is validated strictly at load. A listed id must exist in the dataset,
+must not be a known gap, must assert a refund outcome on exactly one order, and that order must be
+both in the seed data and the one the scenario's refund expectation names. Each of those failures
+would otherwise reach a public page as a dead button, a stale price, or a demonstration of a
+control the project does not yet have.
