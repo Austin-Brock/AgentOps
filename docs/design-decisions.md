@@ -192,3 +192,43 @@ loader rejects two classes of pattern outright: non-ASCII ones, which can never 
 text, and bare common words like `refund` or `system`, which match nearly any reply. The second
 guard immediately failed two scenarios of my own that were passing on `refund` and `system` —
 checks that had been asserting nothing while appearing to pass.
+
+---
+
+## DD-011 — Pull the demo UI ahead of memory
+
+**Decision:** insert a deployed scenario demo (Phase 1.5) between Phases 1 and 2, with fixed
+scenarios only, replay by default, and a rate-limited live mode. Hosted on DigitalOcean App
+Platform.
+
+**Why:** after Phase 1 the only ways to see the agent work were reading the code or running
+`make demo` in a terminal. Both filter out almost everyone. The guardrail behavior in particular
+— the agent reaching for a tool it is not allowed to use, being refused, and recovering — is the
+most interesting thing the project does and the least visible.
+
+It is also cheaper to solve now than later. A public endpoint raises hosting, streaming, cost
+control, and abuse questions that are easier to answer against a four-tool agent than against one
+with memory, retrieval, and a multi-agent coordinator behind it. And every subsequent phase gets a
+surface to be visible on: memory as *"Dana contacted us about this last week,"* retrieval as
+citations a visitor can open, approvals as a queue they can act on.
+
+**What it costs:** Phase 2 slips, and there is now a deployment to keep working across eight more
+phases of change. The second cost is partly a benefit — it forces deployment discipline early
+rather than discovering it in Phase 10.
+
+**Fixed scenarios rather than free text:** a public endpoint accepting arbitrary text is both an
+open tap on the API budget and a prompt-injection surface. The control is structural rather than
+cosmetic — the client sends a scenario id and the server resolves the message from the evaluation
+dataset, so a crafted request cannot smuggle in its own prompt. Free text is worth adding later,
+and the injection scenario is the best demonstration in the project, but it ships on a foundation
+that cannot be drained.
+
+**Replay by default rather than live:** recorded traces cost nothing, are deterministic, and work
+with no credentials at all — so the demo cannot break because a key expired or a rate limit was
+hit. A live button exists to answer the obvious objection that a replay might be a video.
+
+**Consequence:** the demo must derive its scenarios from
+`evaluations/datasets/phase1_support_scenarios.yaml` rather than keeping its own copy. Two
+definitions of the same scenario will drift, and the one on the public page is the one that
+matters. Recorded replays carry the git SHA and model they were captured under, because a page
+quietly demonstrating last month's agent is worse than no page.

@@ -9,6 +9,7 @@ solve, so the repository tells the story of why the architecture evolved the way
 | Phase | Feature | Concepts |
 |---|---|---|
 | 1 | Basic autonomous agent | Agent loops, reasoning, tool calling |
+| 1.5 | Live scenario demo | Streaming traces, deployment, cost and abuse control |
 | 2 | Memory system | Short-term, episodic, semantic, procedural memory |
 | 3 | Context engineering | Token budgets, compaction, lost-in-the-middle |
 | 4 | MCP integration | MCP servers, clients, tools, resources |
@@ -81,6 +82,30 @@ Built as five engineering challenges, each with an acceptance test:
 
 **Deliverable:** a working agent that autonomously selects tools to investigate support requests,
 plus a 20-scenario evaluation suite.
+
+---
+
+## Phase 1.5 — Live scenario demo
+
+**Planned.** Full plan: [`phase-1.5.md`](phase-1.5.md).
+
+A deployed page where a visitor picks a customer with a specific problem and watches the agent
+investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
+scenarios drawn from the Phase 1 evaluation dataset, replayed from recorded real runs by default
+with an opt-in live mode behind rate limits and a daily token budget.
+
+Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
+learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
+
+**Acceptance criteria** (abridged — see the full plan)
+- A visitor with no context understands what happened without reading documentation
+- All eight scenarios replay with no credentials configured
+- The client cannot cause the server to send a message outside the dataset
+- Budget exhaustion degrades to replay with a visible notice, never an error
+- The Phase 1 eval suite passes unchanged — this adds a view, not behavior
+
+**Deliverable:** a public page that makes the agent's behavior, and its guardrails, legible to
+someone who will never read the code.
 
 ---
 

@@ -34,7 +34,7 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | **Phase 1 — Agent from scratch** (complete) |
+| Current phase | Phase 1 complete; **Phase 1.5 — live scenario demo** next |
 | Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
 | Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
 | Offline tests | 102 passing, no API key required |
@@ -65,6 +65,7 @@ make serve       # FastAPI on :8000 — POST /runs
 | [`docs/architecture.md`](docs/architecture.md) | Target architecture and what exists today |
 | [`docs/design-decisions.md`](docs/design-decisions.md) | Decision log — what we chose and why |
 | [`docs/phase-1.md`](docs/phase-1.md) | Phase 1: the hand-written agent loop |
+| [`docs/phase-1.5.md`](docs/phase-1.5.md) | Phase 1.5 plan: the deployed scenario demo |
 | [`evaluations/benchmarks/README.md`](evaluations/benchmarks/README.md) | Running the evaluation suite |
 | [`evaluations/results/README.md`](evaluations/results/README.md) | Measured Phase 1 results and what the first live run exposed |
 
