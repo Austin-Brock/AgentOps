@@ -33,6 +33,24 @@ class ToolInvocation:
         return self.result.is_error
 
     @property
+    def event_data(self) -> dict[str, Any]:
+        """The whole call, for a consumer watching the run as it happens.
+
+        The trace line names the tool and the reason; a UI drawing the call
+        needs the arguments it was made with and what came back.
+        """
+        return {
+            "tool": self.tool_name,
+            "tool_use_id": self.tool_use_id,
+            "arguments": self.arguments,
+            "executed": self.executed,
+            "is_error": self.is_error,
+            "error_code": self.result.code,
+            "result": self.result.payload,
+            "duration_ms": round(self.duration_ms, 1),
+        }
+
+    @property
     def outcome(self) -> ToolOutcome:
         """The provider-neutral form. The adapter decides how it reaches the model."""
         return ToolOutcome(
@@ -148,7 +166,12 @@ class ToolExecutor:
             executed=False,
         )
         if self.trace:
-            self.trace.record("tool_refused", tool=tool_use.name, reason=code)
+            self.trace.record(
+                "tool_refused",
+                tool=tool_use.name,
+                reason=code,
+                data=invocation.event_data,
+            )
         return invocation
 
     def _finish(
@@ -160,18 +183,19 @@ class ToolExecutor:
         executed: bool,
         started: float,
     ) -> ToolInvocation:
-        duration_ms = (time.perf_counter() - started) * 1000
-        if self.trace:
-            self.trace.record(
-                "tool_failed" if result.is_error else "tool_succeeded",
-                tool=tool_use.name,
-                **({"reason": result.code} if result.is_error else {}),
-            )
-        return ToolInvocation(
+        invocation = ToolInvocation(
             tool_use_id=tool_use.id,
             tool_name=tool_use.name,
             arguments=arguments,
             result=result,
             executed=executed,
-            duration_ms=duration_ms,
+            duration_ms=(time.perf_counter() - started) * 1000,
         )
+        if self.trace:
+            self.trace.record(
+                "tool_failed" if result.is_error else "tool_succeeded",
+                tool=tool_use.name,
+                **({"reason": result.code} if result.is_error else {}),
+                data=invocation.event_data,
+            )
+        return invocation

@@ -232,3 +232,42 @@ hit. A live button exists to answer the obvious objection that a replay might be
 definitions of the same scenario will drift, and the one on the public page is the one that
 matters. Recorded replays carry the git SHA and model they were captured under, because a page
 quietly demonstrating last month's agent is worse than no page.
+
+---
+
+## DD-012 — Stream the run by subscribing to the trace, not by duplicating the loop
+
+**Decision:** `SupportAgent.run()` takes an optional `on_event` subscriber, which is attached to
+the run's `RunTrace`. Every event recorded during the run — by the loop and by the tool executor —
+is published to the subscriber as it is recorded. `TraceEvent` gained a structured `data` field
+that `render()` ignores, carrying the arguments, results, and final text a viewer needs but a log
+line should not contain.
+
+**Alternative considered:** a parallel `run_events()` async generator, as Phase 1.5 noted. Cleaner
+for consumers, but it means two implementations of the loop, and the loop is the most-tested code
+in the repository. Duplicating it would halve the value of those tests on the day the copies
+diverged.
+
+**Alternative considered:** a second event type emitted alongside the trace from the loop. That
+keeps the stream's shape independent of the log's, at the cost of two statements per moment and a
+standing invitation to update one and not the other. The trace already *is* the ordered record of
+what the agent did; a live viewer wants that same record sooner, not a different one.
+
+**Why the subscriber sits on the trace:** the tool executor records the three events that matter
+most to the demo — `tool_refused`, `tool_succeeded`, `tool_failed` — and it is the layer holding
+the arguments and the payload. Publishing from the trace means those events stream from where they
+happen, with no coordination between layers and nothing for the loop to re-emit.
+
+**The subscriber is synchronous.** `RunTrace.record()` is called from synchronous code in the
+executor, so an async subscriber could not be awaited at the call sites that matter. Sync is also
+what the streaming consumer wants: an SSE endpoint hands each event to `asyncio.Queue.put_nowait`.
+
+**A failing subscriber is detached, not raised.** A browser closing its connection mid-run must not
+take the run down with it, and a trace full of identical plumbing errors would bury the run it
+describes. The first failure drops the subscriber and is recorded on `trace.subscriber_error` for
+the caller to inspect.
+
+**Consequence:** `run_finished` moved into `SupportAgent._finish`, so all four exit paths —
+completed, truncated, provider refusal, step ceiling — record it in one place. No run can now end
+without a subscriber seeing it end. The HTTP `/runs` response is unchanged: it renders `detail`
+only, so `data` stays out of the existing API until the demo endpoints ask for it.

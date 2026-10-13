@@ -34,10 +34,10 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | Phase 1 complete; **Phase 1.5 — live scenario demo** next |
+| Current phase | **Phase 1.5 — live scenario demo**, step 1 of 8 complete |
 | Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
 | Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
-| Offline tests | 102 passing, no API key required |
+| Offline tests | 116 passing, no API key required |
 | Live scenarios | **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap |
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
@@ -48,7 +48,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 ```bash
 make install     # uv venv + dependencies
 make demo        # watch the agent work, no credentials needed
-make test        # 102 offline tests; no credentials needed
+make test        # 116 offline tests; no credentials needed
 make lint
 
 cp .env.example .env && $EDITOR .env    # add your provider key

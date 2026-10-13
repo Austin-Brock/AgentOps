@@ -1,6 +1,6 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** planned, not started.
+**Status:** in progress — step 1 of 8 complete (the event callback in the agent loop).
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
 intact means the `phase-1` tag and every document that references Phases 2–10 stay correct.
@@ -91,16 +91,25 @@ each was allowed, and token usage. Three additions:
 dataset. That single property is what makes "fixed scenarios" an actual control rather than a UI
 convention — a crafted request cannot smuggle in its own prompt.
 
-**Streaming requires a change to the agent loop.** `SupportAgent.run()` currently returns only
-when the run completes, so there is nothing to stream. Two options, and this is the main design
-decision to make before writing code:
+**Streaming required a change to the agent loop** — `SupportAgent.run()` returned only when the
+run completed, so there was nothing to stream. **Resolved as DD-012: the callback, attached to the
+trace.** `run(..., on_event=...)` subscribes to the run's `RunTrace`, so every event the loop and
+the tool executor already record is published as it happens. `TraceEvent` gained a structured
+`data` field that `render()` ignores, carrying the arguments, results, and final text the page
+draws but a log line should not hold.
 
-- An optional `on_event` callback passed into `run()` — smaller change, keeps one code path
-- A parallel `run_events()` async generator — cleaner for consumers, risks two code paths that
-  can diverge
+Three properties the endpoints in this phase can rely on:
 
-Lean toward the callback, with the generator built on top of it if the UI needs it. The loop is
-the most-tested code in the repository and duplicating it would waste that.
+- **The stream is the trace.** The subscriber receives the same event objects, in the same order,
+  that `run.trace.events` ends up holding — there is no second record to drift from.
+- **Every run streams an ending.** `run_finished` is recorded in `_finish`, which all four exit
+  paths go through, so a viewer is never left watching a run that silently stopped.
+- **A dead consumer cannot kill a run.** A subscriber that raises is detached and the reason kept
+  on `trace.subscriber_error`.
+
+The subscriber is synchronous by design: `record()` is called from synchronous code in the
+executor, and the SSE endpoint wants `asyncio.Queue.put_nowait` anyway. A `run_events()` generator
+can still be built on top of the callback if the UI turns out to want one.
 
 ### Replay recording
 
@@ -171,7 +180,11 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
 
 ## Suggested order of work
 
-1. `on_event` callback in the agent loop, with tests — nothing else can stream without it
+1. ~~`on_event` callback in the agent loop, with tests — nothing else can stream without it~~
+   **Done.** DD-012. `backend/tests/test_events.py` — 14 tests covering arrival during the run,
+   stream/trace identity, the payloads the page draws, a streamed refusal with its missing scope,
+   JSON-serializability of every event, an ending on all four exit paths, and a failing subscriber
+   that does not fail the run.
 2. `GET /demo/scenarios` derived from the eval dataset, with tests
 3. Replay recorder, `make record-replays`, and the staleness test
 4. SSE replay endpoint

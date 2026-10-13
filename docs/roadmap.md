@@ -87,7 +87,7 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**Planned.** Full plan: [`phase-1.5.md`](phase-1.5.md).
+**In progress** — step 1 of 8 complete. Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
 investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
@@ -96,6 +96,11 @@ with an opt-in live mode behind rate limits and a daily token budget.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
+
+Step 1 built the live event stream the rest of the phase needs: `SupportAgent.run()` takes an
+`on_event` subscriber attached to the run's trace, so the loop and the tool executor publish what
+they already record as it happens, rather than only when the run ends. See DD-012 for why a
+subscriber on the trace instead of a second loop.
 
 **Acceptance criteria** (abridged — see the full plan)
 - A visitor with no context understands what happened without reading documentation
