@@ -1,7 +1,8 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** in progress — steps 1 to 4 complete for S01. Building one scenario end to end before
-widening to eight, so the seams are proven on one button rather than discovered on eight.
+**Status:** in progress — steps 1 to 5 complete for S01, which now works end to end: pick it,
+watch the real recorded run arrive, read the result against the expectation. Widening to eight is
+seven more manifest rows and seven recordings. Steps 6 to 8 — live mode, Docker, deploy — remain.
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
 intact means the `phase-1` tag and every document that references Phases 2–10 stay correct.
@@ -164,6 +165,21 @@ React + TypeScript + Vite in `frontend/`, per the stack. No state library — a 
 an event list do not need one. Deliberately plain: the trace is the content, and chrome competes
 with it.
 
+Three things worth knowing about the implementation:
+
+- **`EventSource` reconnects when a stream closes**, and a finished replay is a closed stream. The
+  subscription closes itself on `run_finished`, or the page would restart the replay forever and
+  quietly hammer the endpoint. This is reliable because every run records a terminal event on
+  every exit path (DD-012).
+- **Tool results are summarized per tool**, with a fallback for tools this build has not been
+  taught. Pasting a 2,770-character policy document into the trace buries the trace.
+- **An unknown event kind renders generically rather than being dropped.** Phase 7 will add kinds
+  this build has never heard of, and a page that silently discards them under-reports what the
+  agent did.
+
+The Vite dev server proxies `/demo` to the API, so there is no CORS configuration in development,
+and in production both halves sit behind one origin on App Platform. `make dev` runs both.
+
 ### Deployment
 
 One DigitalOcean App Platform app, two components:
@@ -216,7 +232,10 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    capped at 1.5s. Progressive delivery verified against a real uvicorn server with `curl -N`,
    not only through `TestClient` — which buffers, and would have reported a working stream
    either way.
-5. Frontend: picker, trace view, summary bar — against replay only
+5. ~~Frontend: picker, trace view, summary bar — against replay only~~
+   **Done.** `frontend/` is Vite + React + TypeScript, no state library. The rendering logic is
+   pure and tested against the real recording; the page itself is mounted in jsdom and driven by
+   a fake `EventSource`, which is how the progressive arrival is asserted. 33 tests.
 6. Live endpoint with every control from the table above, and tests that each control actually fires
 7. Dockerfile, docker-compose, DO App Platform spec
 8. Deploy, then re-record replays against the deployed model

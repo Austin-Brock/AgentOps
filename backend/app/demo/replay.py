@@ -62,6 +62,22 @@ class Replay:
     events: tuple[dict[str, Any], ...]
 
     @property
+    def model_version(self) -> str:
+        """The model id the provider actually reported, not the alias requested.
+
+        `AGENTOPS_MODEL=gpt-5` is an alias; `gpt-5-2025-08-07` is what answered.
+        Since the point of recording the model is knowing what produced the run,
+        the page shows the precise one. Derived from the events rather than
+        stored, so existing recordings gain it without being re-captured.
+        """
+        for event in reversed(self.events):
+            if event["kind"] == "model_responded":
+                reported = event["data"].get("model")
+                if reported:
+                    return str(reported)
+        return self.model
+
+    @property
     def duration_ms(self) -> float:
         """How long the recorded run actually took, for pacing the replay."""
         return self.events[-1]["elapsed_ms"] if self.events else 0.0
@@ -79,6 +95,7 @@ class Replay:
             "git_dirty": self.git_dirty,
             "provider": self.provider,
             "model": self.model,
+            "model_version": self.model_version,
             "events": len(self.events),
             "duration_ms": self.duration_ms,
         }

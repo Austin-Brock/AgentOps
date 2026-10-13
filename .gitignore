@@ -15,6 +15,7 @@ node_modules/
 dist/
 build/
 .vite/
+frontend/*.tsbuildinfo
 
 # Environment
 .env

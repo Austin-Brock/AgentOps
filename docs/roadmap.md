@@ -87,7 +87,7 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**In progress** — steps 1-4 of 8 complete for the first scenario. Full plan: [`phase-1.5.md`](phase-1.5.md).
+**In progress** — the first scenario works end to end (steps 1-5 of 8). Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
 investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
@@ -96,6 +96,10 @@ with an opt-in live mode behind rate limits and a daily token budget.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
+
+Step 5 built the page: `frontend/` on Vite + React + TypeScript, no state library, with the
+rendering logic tested against the real recording and the page itself mounted in jsdom and driven
+event by event.
 
 Steps 3 and 4 made the demo work with no credentials at all: one real `gpt-5` run per scenario is
 recorded to disk with the git SHA and model it was captured under, and served back over SSE at the
