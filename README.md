@@ -1,14 +1,17 @@
 # AgentOps
 
-A production-oriented AI agent platform demonstrating autonomous tool execution, multi-agent
-orchestration, memory, RAG, MCP, human-in-the-loop approvals, and observability.
+An autonomous AI customer support agent built **without an agent framework** — the loop, the tool
+schemas, the authorization check and the step ceiling are all ordinary Python you can read — with a
+public demo, a 21-scenario evaluation suite, and a written rationale for every design decision.
 
-AgentOps is built as an **AI agent engineering laboratory with a working product at its center**:
-an AI-powered customer support platform for a fictional e-commerce company. The product is the
-test environment; the experiments and benchmarks are the point.
+A customer asks for a refund. The agent investigates, decides what they are entitled to, and acts
+only within the authority it actually holds. Permissions and financial limits are enforced in
+application code, never in the prompt — and the demo lets you watch a tool call get refused.
 
-Each capability is introduced only when it solves a demonstrated problem, and every phase ships
-with tests, measurements, and a written design rationale.
+**What is built is Phase 1 and Phase 1.5:** the agent, its guardrails, its evaluation, and the
+deployed page. Memory, RAG, MCP, multi-agent orchestration, model routing and approval workflows
+are *planned* in [`docs/roadmap.md`](docs/roadmap.md) and **are not built**. That document is a
+syllabus, not a changelog — it is kept because the work may continue, not because it has.
 
 ## Watch it work
 
@@ -64,20 +67,58 @@ other safety requirements are enforced in application code — never left to the
 
 ## Status
 
+**Phases 1 and 1.5 are complete, and the project is paused here deliberately.** This is a
+stopping point rather than an abandoned build: the agent works, it is measured, it is deployed, and
+what it does not do is written down.
+
 | | |
 |---|---|
-| Current phase | **Phase 1.5 — live scenario demo**, complete, deployed and public. Next is Phase 2 (memory) |
+| Agents | **One.** A single `SupportAgent` with one prompt and one scope set. No coordinator, no delegation, no specialists |
 | Agent runtime | Custom Python loop, no agent framework. 3 business tools + 1 deliberately unauthorized |
-| Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
+| Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` — a config switch, not a routing decision the system makes |
 | Offline tests | **269** — 226 backend, 43 frontend. No API key required for any of them |
 | Evaluation suite | 21 scenarios. **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap; S21 added after the Phase 1 gate and verified on its own run |
 | Demo recordings | 9 real `gpt-5` runs, each stamped with the git SHA and model that produced it |
 | Live mode | Built and tested behind five controls; **off in production** until a credential is deployed (DD-015) |
+| Persistence | None. Refunds live in process memory and vanish on restart |
 
-See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates,
-[`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built, and
-[`docs/design-qa.md`](docs/design-qa.md) for the design rationale question by question — why no
-framework, why no database yet, why Vercel, and which parts are currently weak.
+## What this does, and what it does not
+
+Stated plainly, because a reader who discovers a limitation on their own stops trusting the rest.
+
+**It does:**
+
+- Decide which tools to call, in what order, from what the previous result said — no hardcoded
+  step ordering, and the eval suite asserts later choices depend on earlier ones
+- Enforce every safety rule in application code: the $50 automatic and $200 manager refund
+  ceilings, the 30-day window, one refund per order, and a refund never exceeding what was paid
+- Refuse a tool it has no scope for **before the handler is reachable**, so a denied call cannot
+  have side effects. The handler for that tool raises if it is ever reached, so a regression in
+  the permission check fails a test instead of moving money
+- Terminate. `max_steps` caps model calls per run; a model that loops forever exits as
+  `max_steps_exceeded` rather than running up a bill
+- Treat tool failures as data the model reads and adapts to, including injected ones
+- Run the same scripted conversation through both Anthropic's and OpenAI's wire formats and assert
+  identical agent behavior, so the provider seam is tested rather than claimed
+- Stream its trace as it happens, and replay nine recorded real runs with no credential at all
+
+**It does not:**
+
+- Remember anything between conversations, or persist a refund past a restart
+- Retrieve — the policy document is read whole, every time
+- Check that it may read *this* order, only that it may read orders. This is scenario **S11**, a
+  tracked known gap excluded from the pass gate, and the one place the central claim is not yet true
+- Wrap idempotency in a transaction, so check-then-write would race under concurrency
+- Route between models, fall back between providers, or attribute cost per agent
+- Coordinate multiple agents, or expose its tools over MCP
+
+Each absence has a phase in the roadmap that would close it. None of them are closed.
+
+See [`docs/design-qa.md`](docs/design-qa.md) for the design rationale question by question —
+why no framework, why no database yet, why Vercel, and which parts are weak;
+[`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built; and
+[`docs/roadmap.md`](docs/roadmap.md) for the ten planned phases, eight and a half of which are
+not built.
 
 ## Quickstart
 

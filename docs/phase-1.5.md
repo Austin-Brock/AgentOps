@@ -1,9 +1,16 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** complete. All eight steps are done for **all nine** scenarios, each recorded against
-`gpt-5` and playable, deployed and public. Step 6 — live mode and the controls that make a paid
-public endpoint safe — landed last; it is built and tested but **off in production until a
-credential is deployed**, which is a decision rather than an omission (DD-015).
+**Status:** complete, and **the current end of work on the project.** All eight steps are done for
+**all nine** scenarios, each recorded against `gpt-5` and playable, deployed and public. Step 6 —
+live mode and the controls that make a paid public endpoint safe — landed last; it is built and
+tested but **off in production until a credential is deployed**, which is a decision rather than an
+omission (DD-015).
+
+The project is paused here deliberately. Phase 1 and 1.5 together demonstrate the thing the
+repository exists to demonstrate — an agent loop written by hand, guardrails enforced in code, and
+a measured evaluation — and Phases 2 through 10 remain a syllabus rather than a commitment. See
+"If this is picked up again" at the end of this document for the two things a future return should
+know.
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
 intact means the `phase-1` tag and every document that references Phases 2–10 stay correct.
@@ -319,3 +326,34 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    **Done.** Live, public, and verified after a push-triggered build rather than only after the
    CLI deploy that preceded it. The recordings carry `git_dirty: true` because they predate the
    commits that deployed them; the flag is accurate and re-recording is cosmetic.
+
+---
+
+## If this is picked up again
+
+Two things a future return should know, recorded now rather than rediscovered later.
+
+**Live mode shares the process-wide `DataStore`, and should not.** A live run creates a real refund
+against the shared store, so a second live run of the same scenario collides with the first: either
+idempotency returns the original marked `deduplicated`, or `create_refund_request` rejects it as
+`already_refunded`. Both are *correct* agent behavior and neither is what the page's **expected**
+line promises, so a visitor clicking the same scenario twice can see the trace disagree with the
+expectation above it.
+
+This is a wiring mistake rather than a design tension, and the fix is small: `SupportAgent` already
+accepts a `store`, and `DataStore` already constructs fresh from the seed files — the test suite
+depends on exactly that isolation. A live run should get its own store. The refund is still
+genuinely recorded, just scoped to the run, which is also more honest about serverless: process
+memory was never a durable world, and a cold start already wiped it at unpredictable intervals.
+
+It is dormant while live mode is off, which is why it did not block the pause.
+
+**Nothing on the page needs mutation to demonstrate the one-refund-per-order rule.** S07 already
+does it against order #4476, which is seeded as already refunded. The realism of "you cannot refund
+twice" is a scenario, not a side effect — so scoping live runs to their own store costs the demo
+nothing.
+
+**What is actually worth doing before more features:** the project's least-verified claim is not
+technical. `docs/design-qa.md` says it plainly — "a visitor with no context can understand what
+happened" is an acceptance criterion no test can assert, and it has had very few real readers.
+Three strangers and one question (*what is this?*) would tell you more than the next phase would.

@@ -557,6 +557,12 @@ true. Per-customer authorization on reads arrives in Phase 10.
 - **The demo's rate limit and token budget are per process.** Correct on one instance, and a
   ceiling multiplied by the instance count on a platform that scales. Sized for the multiplier and
   disclosed on the page rather than hidden, which makes it honest but not right. Phase 2.
+- **Live runs share the process-wide `DataStore`.** A live run creates a real refund against shared
+  state, so a second live run of the same scenario collides with the first — returning the original
+  as `deduplicated`, or rejecting it as `already_refunded`. Both are correct agent behavior and
+  neither matches the **expected** line the page printed beforehand. A wiring mistake rather than a
+  design tension: a live run should get its own store, which `SupportAgent` already accepts and the
+  test suite already relies on. Dormant while live mode is off. Written up in `phase-1.5.md`.
 
 ### What would you do differently if you started again?
 
