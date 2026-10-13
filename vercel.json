@@ -4,13 +4,26 @@
   "outputDirectory": "public",
   "functions": {
     "api/index.py": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "excludeFiles": "{frontend/**,public/**,experiments/**,evaluations/results/**,backend/tests/**,backend/.venv/**,docs/**}"
     }
   },
   "headers": [
     {
       "source": "/demo/scenarios/:id/replay",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-transform"
+        },
+        {
+          "key": "X-Accel-Buffering",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "source": "/demo/scenarios/:id/run",
       "headers": [
         {
           "key": "Cache-Control",

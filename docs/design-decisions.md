@@ -359,3 +359,85 @@ invisible from local verification and each with a successful build log.
 it are not necessarily the same build, which is how a site confirmed working became a broken one
 with nothing in between but a `git push`. Verification now happens against the production alias
 after the push-triggered build, not against the one the CLI just made.
+
+---
+
+## DD-015 — A live endpoint that spends money, and five controls that bound it
+
+**Decision:** ship `POST /demo/scenarios/{id}/run`, which runs a demo scenario against the real
+model, behind five independent controls — an off-by-default flag, a per-visitor hourly rate limit,
+a per-process daily token budget, a concurrency cap, and the existing `max_steps` ceiling. Every
+refusal degrades to the recorded run with a notice naming the control that fired. Separately, close
+`POST /runs` behind its own flag, default off.
+
+**Why close `POST /runs` first:** it is the only endpoint in the service that accepts free-form
+customer text, and it was publicly reachable. It answered 503 rather than running the agent purely
+because no credential was deployed — an accident of configuration standing in for a control. Live
+mode's whole purpose is to deploy a credential, which would have converted that accident into an
+open prompt field with a key behind it: precisely what the fixed-scenario design exists to prevent
+(DD-011). It now answers **404 rather than 403**, because a 403 confirms an endpoint is there and
+invites someone to look for the way in.
+
+**Why POST for the live endpoint, despite the cost:** `EventSource` can only issue a GET, so a POST
+means hand-writing an SSE reader on `fetch` — about forty lines of client code that `EventSource`
+would have provided. It is still the right choice. A GET that spends money is a GET that a link
+prefetcher, a crawler, or a chat client's unfurler will eventually fire by itself, and the first the
+budget would hear about it is an empty balance. Forty lines is cheap insurance against a URL that
+costs money to look at.
+
+**Why degrade instead of refuse:** every control answers 200 with a `notice` frame and then streams
+the recording. A visitor who clicks *Run live* on a spent budget is owed the agent working and an
+explanation of why this particular run was recorded — not a 429, and not a dead button with no
+reason attached. This is also what keeps the page's single acceptance criterion true under every
+configuration: with live mode off, nothing is broken, and the page says so.
+
+**The honest limitation: the counters are per process.** The rate limiter and the budget are
+in-memory, so a platform running N instances has N of each and the real daily ceiling is the
+configured budget times the instance count. Three ways out were considered:
+
+1. **Provision shared state now** — a Marketplace Redis for one global counter. Correct, and
+   rejected: it stands up infrastructure for a demo button, and front-runs the phase whose reason to
+   exist is bringing that infrastructure for memory.
+2. **Pin to one instance** — no supported knob does this on a platform whose scaling is the product.
+3. **Size for the multiplier and say so** — chosen. The default budget is 120,000 tokens, roughly
+   twenty runs, set well under a comfortable daily spend precisely because it may be multiplied. The
+   caveat is not buried in this document: `/demo/scenarios` reports `budget_scope: "per server
+   instance"` and the page prints it, because a global cap the code does not enforce is the kind of
+   claim this project writes down rather than makes.
+
+Phase 2 replaces the counters with one shared counter when it brings the state that can hold it.
+
+**Why the budget reserves before the run rather than counting after it:** a run's cost is only known
+when the provider reports usage, so counting completed runs would let every request in a
+simultaneous burst check the balance, find it healthy, and collectively overshoot. Each admitted run
+holds `RESERVE_PER_RUN = 14,000` tokens, which is then released and replaced by the real usage. The
+reservation is sized from the recordings rather than their average: a typical scenario spends ~5,800
+tokens, but S21 — the guardrail scenario, and the one a visitor is most likely to click — spent
+13,540. Over-reserving costs only a slightly early switch to replay on the last run of a day.
+
+**The rate limit is not the spending cap, and is not treated as one.** It is keyed on
+`x-forwarded-for`, which a determined caller can set freely. That is why the budget behind it is
+keyed on nothing at all: a thousand addresses buy exactly the same number of tokens as one.
+
+**What the recordings exposed about the deployment, which no test would have caught:** S21's real
+run took **73.6 seconds**, and `vercel.json` pinned `maxDuration: 60`. Live mode would have shipped
+with the platform killing the demo's headline scenario mid-stream, in the one mode where there is no
+recording to fall back to — the stream had already started. Raised to 300s, the current default.
+The live endpoint also needed the same `X-Accel-Buffering` header rule the replay path already had,
+or a buffering proxy would have delivered the whole run in one block at the end.
+
+**Two gaps this layer does not close, written down rather than left to be discovered:**
+
+- **A disconnected run's tokens go uncounted.** Usage is only known from a run that returns, so a
+  visitor who starts a live run and closes the tab has spent tokens the budget never sees. The rate
+  limit is what bounds it — a few runs an hour each — which is why that control is not redundant
+  with the budget even though the budget is the real cap.
+- **The disconnect path itself is untested.** The reservation release is exercised through the
+  failure path, but a client vanishing mid-stream depends on the ASGI server closing the generator,
+  which `TestClient` does not simulate.
+
+**One run does not end itself.** Every exit from the agent loop records `run_finished` (DD-012), but
+a provider error raised inside `model.create()` leaves the loop before `_finish` — and the client
+closes its stream on the terminal event and nothing else. A failed live run therefore gets a
+synthesized ending, labelled `provider_error` so it is not mistaken for a run that completed. Headers
+are long gone by then, so this cannot be an HTTP status; it has to be in the stream.

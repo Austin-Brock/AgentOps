@@ -10,12 +10,25 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import get_settings_uncached
 from app.main import app
 
 
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
+
+
+@pytest.fixture
+def open_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Open POST /runs for one test.
+
+    `get_settings` is cached process-wide, so the flag is swapped where the
+    handler reads it rather than through the environment — which would need the
+    cache cleared and would leak into whatever test ran next.
+    """
+    settings = get_settings_uncached(open_runs_enabled=True)
+    monkeypatch.setattr("app.main.get_settings", lambda: settings)
 
 
 def test_health_reports_loaded_state(client: TestClient) -> None:
@@ -36,7 +49,23 @@ def test_tools_endpoint_separates_visibility_from_authorization(client: TestClie
     assert "apply_account_credit" in body["advertised_to_model"]
 
 
-def test_missing_credential_is_a_503_not_a_crash(client: TestClient) -> None:
+def test_open_runs_is_closed_by_default(client: TestClient) -> None:
+    """The one free-text endpoint is shut unless a deployment opens it.
+
+    It was reachable in production and answered 503 only because no credential
+    was deployed — an accident, not a control. Live mode brings a key, so the
+    accident had to become a decision (DD-015).
+
+    404 rather than 403 on purpose: a 403 tells a prober the endpoint exists.
+    """
+    response = client.post("/runs", json={"message": "My order #4471 arrived damaged."})
+
+    assert response.status_code == 404
+    # Nothing in the body hints that a real endpoint is behind the flag.
+    assert "run" not in response.json()["detail"].lower()
+
+
+def test_missing_credential_is_a_503_not_a_crash(client: TestClient, open_runs: None) -> None:
     """Credentials are stripped suite-wide, so this exercises the real guard.
 
     It must stay provider-agnostic: the detail names whichever variable the

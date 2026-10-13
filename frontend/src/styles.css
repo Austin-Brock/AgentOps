@@ -197,6 +197,14 @@ button {
   font-family: var(--mono);
 }
 
+/* The live allowance: what a visitor has left, and the per-instance caveat. */
+.allowance {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px;
+}
+
 /* --- trace --- */
 
 .trace {
@@ -323,6 +331,18 @@ button {
 
 .refused-count strong {
   color: var(--refused);
+}
+
+/* Which mode produced the trace above. A live run earns the accent; a
+   recording is stated plainly, because "recorded" is the honest default and
+   not a lesser outcome. */
+.mode {
+  color: var(--ink-faint);
+}
+
+.mode-live {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .verdict {

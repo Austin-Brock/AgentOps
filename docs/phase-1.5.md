@@ -1,8 +1,9 @@
 # Phase 1.5 — Live scenario demo
 
-**Status:** in progress — steps 1 to 5 complete for **all nine** scenarios, each recorded against
-`gpt-5` and playable. Steps 6 to 8 — live mode, Docker, deploy — remain. Next action is a public
-deployment so the page can be used by someone who will never run it locally.
+**Status:** complete. All eight steps are done for **all nine** scenarios, each recorded against
+`gpt-5` and playable, deployed and public. Step 6 — live mode and the controls that make a paid
+public endpoint safe — landed last; it is built and tested but **off in production until a
+credential is deployed**, which is a decision rather than an omission (DD-015).
 **Inserted between Phases 1 and 2.** Numbered 1.5 deliberately: it is a product decision that
 interrupts the original learning sequence, not a step in it. Keeping the existing numbering
 intact means the `phase-1` tag and every document that references Phases 2–10 stay correct.
@@ -159,18 +160,43 @@ is worse than no page. Mitigations:
 
 ### Cost and abuse controls
 
-| Control | Mechanism |
-|---|---|
-| Live mode off by default | `AGENTOPS_DEMO_LIVE_ENABLED` env flag |
-| No arbitrary input | Scenario ids only; messages resolved server-side |
-| Per-visitor rate limit | N live runs per hour per IP — in-process to start, Valkey when Phase 2 brings infrastructure |
-| Daily token budget | Tracked per process; on exhaustion live mode degrades to replay with a visible notice rather than erroring |
-| Per-run ceiling | The existing `max_steps` cap already bounds any single run |
-| Kill switch | Flip the env flag and redeploy |
+**Built — DD-015.** All of it lives in `app/demo/live.py`, and `test_demo_live.py` drives each
+control to its limit rather than asserting it exists.
 
-Sizing, from measured Phase 1 data: one scenario costs roughly **5,800 tokens** (~3,800 in,
-~2,000 out). A 300,000-token daily cap allows about 50 live runs a day and degrades gracefully
-rather than failing.
+| Control | Mechanism | Default |
+|---|---|---|
+| Live mode off by default | `AGENTOPS_DEMO_LIVE_ENABLED`, also the kill switch | `false` |
+| No arbitrary input | Scenario ids only; messages resolved server-side | — |
+| Per-visitor rate limit | Sliding hourly window keyed on `x-forwarded-for` | 3/hour |
+| Daily token budget | Reserved before each run, reconciled after, resets on the UTC date | 120,000 |
+| Concurrency cap | Live runs in flight at once | 2 |
+| Per-run ceiling | The existing `max_steps` cap already bounds any single run | 8 steps |
+| `POST /runs` closed | `AGENTOPS_OPEN_RUNS_ENABLED`; answers 404, not 403 | `false` |
+
+**No control errors.** Every refusal answers 200 with a `notice` frame naming the control that
+fired, then streams the recording. A visitor is owed the agent working and an explanation, not a
+429.
+
+**The budget reserves rather than counts.** A run's cost is known only when the provider reports
+usage, so counting finished runs would let a simultaneous burst each see a healthy balance and
+collectively overshoot. Each admitted run holds 14,000 tokens — sized from S21's real 13,540 rather
+than the ~5,800 average, because S21 is the scenario a visitor is most likely to click — which is
+then released and replaced by the actual usage.
+
+**The rate limit is not the spending cap.** It is keyed on a header a caller can set freely. That is
+why the budget behind it is keyed on nothing at all: a thousand addresses buy the same number of
+tokens as one.
+
+**The counters are per process**, so N instances means N budgets and a real ceiling of 120,000 × N.
+Sized for that multiplier rather than pretending otherwise, and disclosed on the page itself —
+`/demo/scenarios` reports `budget_scope: "per server instance"`. Phase 2 replaces it with one shared
+counter when it brings the state that can hold one.
+
+**What the recordings exposed, which no test would have caught:** S21's real run took **73.6
+seconds** against a pinned `maxDuration: 60`. Live mode would have shipped with the platform killing
+the demo's headline scenario mid-stream — in the one mode with no recording to fall back to, since
+the stream had already started. Raised to 300s, and the live path got the same `X-Accel-Buffering`
+rule the replay path already had.
 
 ### Frontend
 
@@ -200,11 +226,19 @@ and in production both halves sit behind one origin on Vercel. `make dev` runs b
 single Python function. Both halves sit behind one origin, so there is no CORS configuration in
 production and none in development either — the dev server proxies instead.
 
-**No credential is deployed.** Replay reads recorded runs from disk and never calls a provider, so
-there is nothing for a visitor to spend and nothing to leak. Step 6 is what introduces
-`OPENAI_API_KEY`, together with the controls that make a public key-holding endpoint safe — and it
-also has to close `POST /runs`, which the catch-all routing now exposes and which would otherwise
-be exactly the open prompt field DD-011 exists to prevent.
+**No credential is deployed yet.** Replay reads recorded runs from disk and never calls a provider,
+so there is nothing for a visitor to spend and nothing to leak. Step 6 built everything that makes
+deploying `OPENAI_API_KEY` safe — the controls above, and the closure of `POST /runs`, which the
+catch-all routing exposed and which would otherwise have been exactly the open prompt field DD-011
+exists to prevent. Turning live mode on is now two settings and a redeploy:
+
+```bash
+vercel env add OPENAI_API_KEY production
+vercel env add AGENTOPS_DEMO_LIVE_ENABLED production   # true
+```
+
+Clearing the flag is the kill switch, and it degrades rather than breaks: every live request falls
+back to the recording with a notice saying why.
 
 Three things broke on the way, each with a successful build log and none of them visible locally: a
 rewrite destination becoming the path FastAPI sees, a stale project setting surviving the removal
@@ -217,18 +251,29 @@ needs when PostgreSQL arrives — but they are no longer on the critical path to
 ## Acceptance criteria
 
 - A visitor with no context can pick a persona and understand what happened, without reading docs
-- All eight scenarios replay correctly with **no credentials configured at all**
-- The client cannot cause the server to send a message that is not in the dataset
-- With live mode disabled, the page is fully functional and says so
-- With the daily budget exhausted, live runs degrade to replay with a visible notice — never a
-  stack trace or a blank page
-- The guardrail scenario visibly shows a refused tool call and its reason — **met by S21**, and a
+  — the one criterion no test can assert, and the project's least-verified claim
+- ✅ All nine scenarios replay correctly with **no credentials configured at all**
+- ✅ The client cannot cause the server to send a message that is not in the dataset — asserted for
+  the live endpoint too, with a crafted body *and* query string, now that one accepts a POST
+- ✅ With live mode disabled, the page is fully functional and says so — the button is off, carries
+  the server's reason as its tooltip, and a request still returns a usable run
+- ✅ With the daily budget exhausted, live runs degrade to replay with a visible notice — never a
+  stack trace or a blank page. Same for the rate limit, the concurrency cap, a missing credential,
+  and the flag itself
+- ✅ The guardrail scenario visibly shows a refused tool call and its reason — **met by S21**, and a
   test asserts at least one shipped recording still contains a `permission_denied`, so a future
   re-record cannot quietly lose it
-- A stale replay is detectable: capture date and model are on screen, and a test fails if a
+- ✅ A stale replay is detectable: capture date and model are on screen, and a test fails if a
   scenario has no replay
-- `docker compose up` serves the whole thing locally
-- The Phase 1 eval suite still passes unchanged — this phase adds a view, not behavior
+- ~~`docker compose up` serves the whole thing locally~~ — **superseded by DD-014.** The deployment
+  is Vercel; compose is Phase 2's local-parity problem, when there is a database to bring up
+- ✅ The Phase 1 eval suite still passes unchanged — this phase adds a view, not behavior
+
+**One criterion is met in code but not yet demonstrated in public:** "replay alone invites the
+question *is this just a video?* — one real run answers it". Live mode is built and tested, and off
+in production until a credential is deployed. That is the last action in this phase, and it is a
+deliberate stopping point rather than an omission: deploying a key is a decision about spending
+money on a public page, and the controls that make it safe had to exist first.
 
 ## Explicitly out of scope
 
@@ -260,7 +305,13 @@ any memory display (Phase 2). Each arrives with the phase that builds the thing 
    **Done.** `frontend/` is Vite + React + TypeScript, no state library. The rendering logic is
    pure and tested against the real recording; the page itself is mounted in jsdom and driven by
    a fake `EventSource`, which is how the progressive arrival is asserted. 33 tests.
-6. Live endpoint with every control from the table above, and tests that each control actually fires
+6. ~~Live endpoint with every control from the table above, and tests that each control actually fires~~
+   **Done.** DD-015. `app/demo/live.py` holds the gate; `POST /demo/scenarios/{id}/run` streams a
+   real run and degrades to the recording with a notice when any control refuses. 36 tests in
+   `test_demo_live.py` — one per control driven to its limit, plus the budget's UTC reset, a
+   reservation that leaks nothing when a run dies, and a provider failure that still ends the
+   stream. `POST /runs` was closed in the same step: it accepted free-form text, was publicly
+   reachable, and answered 503 only because no key was deployed.
 7. ~~Dockerfile, docker-compose, DO App Platform spec~~ **Superseded by DD-014.** Deployed to
    Vercel instead; Docker and compose remain useful for Phase 2's local parity but were not needed
    to ship a public page.

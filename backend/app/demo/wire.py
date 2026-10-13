@@ -61,3 +61,26 @@ def sse_frame(payload: dict[str, Any]) -> str:
 def sse_comment(text: str) -> str:
     """A comment frame. Ignored by clients, but it keeps a connection warm."""
     return f": {text}\n\n"
+
+
+#: The SSE event name for demo control frames — which mode a request got, and
+#: why it is not the one that was asked for.
+NOTICE_EVENT = "notice"
+
+
+def sse_notice(payload: dict[str, Any]) -> str:
+    """One control frame, on its own named SSE channel.
+
+    `sse_frame` deliberately leaves the event unnamed so that trace kinds added
+    in a later phase still reach a client's `onmessage`. That argument is about
+    the trace, whose kinds keep growing. A notice is the opposite kind of thing:
+    a fixed, single-purpose control channel that says which mode the caller got.
+
+    Naming it is what keeps the two apart. A notice is not a trace event — it
+    has no place in the run, no `seq`, and belongs in the page's chrome rather
+    than in the list of what the agent did — so a client that routed it through
+    `onmessage` would have to filter it back out of its own trace by kind, and
+    a recorder that received one would have to know not to write it down.
+    """
+    body = json.dumps(payload, separators=(",", ":"))
+    return f"event: {NOTICE_EVENT}\ndata: {body}\n\n"

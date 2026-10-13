@@ -19,6 +19,13 @@ including the calls it is refused. Nine scenarios, each a **recorded run of the 
 `gpt-5`**, replayed at the pace it happened. No login, and no credential is deployed: replay reads
 recorded runs from disk and never calls a provider.
 
+There is also a *Run live* button, which calls the model now rather than replaying. It is built and
+tested behind an off-by-default flag, a per-visitor rate limit, a daily token budget and a
+concurrency cap — every one of which degrades to the recording with a visible notice rather than
+erroring — and it is switched off in production until a key is deployed. See
+[DD-015](docs/design-decisions.md) for the controls and for the honest limitation: the counters are
+per server instance, so the page says so rather than claiming a global cap it does not enforce.
+
 The two worth clicking first:
 
 | | |
@@ -59,12 +66,13 @@ other safety requirements are enforced in application code — never left to the
 
 | | |
 |---|---|
-| Current phase | **Phase 1.5 — live scenario demo**, deployed and public. Live mode (an opt-in real run) is the remaining piece |
+| Current phase | **Phase 1.5 — live scenario demo**, complete, deployed and public. Next is Phase 2 (memory) |
 | Agent runtime | Custom Python loop, no agent framework. 3 business tools + 1 deliberately unauthorized |
 | Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
-| Offline tests | **224** — 189 backend, 35 frontend. No API key required for any of them |
+| Offline tests | **269** — 226 backend, 43 frontend. No API key required for any of them |
 | Evaluation suite | 21 scenarios. **19/19 gated** on three consecutive runs against `gpt-5`, 1 known gap; S21 added after the Phase 1 gate and verified on its own run |
 | Demo recordings | 9 real `gpt-5` runs, each stamped with the git SHA and model that produced it |
+| Live mode | Built and tested behind five controls; **off in production** until a credential is deployed (DD-015) |
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates,
 [`docs/phase-1.md`](docs/phase-1.md) for what Phase 1 actually built, and
@@ -79,13 +87,13 @@ make web-install    # frontend dependencies
 
 make demo           # watch the agent work in a terminal, no credentials needed
 make dev            # the demo page itself: API on :8000, page on :5173
-make check          # 224 tests across backend and frontend; no credentials needed
+make check          # 269 tests across backend and frontend; no credentials needed
 
 cp .env.example .env && $EDITOR .env    # add your provider key
 make preflight          # verify the credential and list reachable models
 make eval               # the 21-scenario evaluation suite
 make record-replays     # re-record the demo's runs against the real model
-make serve              # FastAPI on :8000 — POST /runs
+make serve              # FastAPI on :8000 (POST /runs needs AGENTOPS_OPEN_RUNS_ENABLED=true)
 ```
 
 ## Documentation
@@ -111,12 +119,13 @@ backend/            FastAPI service + agent runtime
   app/retrieval/    Chunking, embeddings, hybrid search, reranking (Phase 6)
   app/orchestration/ Coordinator and specialist agents (Phase 7)
   app/gateway/      Model routing, budgets, fallback (Phase 8)
+  app/demo/         The demo's catalog, wire format, replay store, and live-mode controls
   app/approvals/    Permissions, limits, idempotency, durable execution (Phase 9)
   app/observability/ Traces, spans, cost accounting (Phase 10)
 frontend/           React + TypeScript: the scenario demo (dashboard and approvals in Phase 9)
   src/wire.ts       The server's event format, mirrored
   src/render.ts     Trace -> readable rows; pure, and tested against a real recording
-  src/stream.ts     Reading the replay stream
+  src/stream.ts     Reading the replay stream, and the live one (a POST, so not EventSource)
 api/                Vercel's entry point into the FastAPI app
 public/             The built frontend, committed — see frontend/vite.config.ts for why
 skills/             Agent skills with progressive disclosure (Phase 5)

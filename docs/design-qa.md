@@ -476,19 +476,58 @@ bounds any single run, and the fact that the deployed page costs nothing per vis
 
 ### What stops a live mode from becoming an open tap?
 
-The controls are designed and not yet built — this is the honest state. Planned: scenario ids only
-so there is no arbitrary input, an off-by-default env flag, a per-IP rate limit, a daily token
-budget that degrades to replay with a visible notice rather than erroring, the existing `max_steps`
-ceiling per run, and a kill switch.
+Five controls, each bounding a different failure, so that no single one is load-bearing. Built and
+tested — `app/demo/live.py`, and `test_demo_live.py` drives each one to its limit (DD-015).
 
-Two known problems with that plan, both written down before building it:
+| Control | What it bounds | Default |
+|---|---|---|
+| `AGENTOPS_DEMO_LIVE_ENABLED` | Everything. Also the kill switch | off |
+| Scenario ids only | The input. There is no field to craft | — |
+| Per-visitor hourly rate limit | One person's share | 3/hour |
+| Daily token budget | Total spend, keyed on nobody | 120,000 |
+| Concurrency cap | A burst from many addresses | 2 in flight |
+| `max_steps` | Any single run | 8 steps |
 
-1. **The daily budget is per process**, and a platform can run more than one instance — so two
-   instances silently double the cap. Either pin to one instance until Phase 2 brings shared state,
-   or state the multiplier explicitly.
-2. **`POST /runs` is currently reachable** and accepts arbitrary text. It answers 503 today only
-   because no key is deployed. Adding one without closing that endpoint would recreate exactly the
-   open prompt field the fixed-scenario design exists to prevent.
+**Nothing errors.** Every refusal answers 200 with a notice naming the control that fired, then
+streams the recording. A visitor who clicks *Run live* on a spent budget is owed the agent working
+and an explanation, not a 429.
+
+**The rate limit is not the spending cap.** It is keyed on `x-forwarded-for`, which a caller can set
+freely. That is exactly why the budget behind it is keyed on nothing: a thousand addresses buy the
+same number of tokens as one.
+
+**The budget reserves before the run rather than counting after it.** A run's cost is known only
+when the provider reports usage, so counting completed runs would let a simultaneous burst each find
+a healthy balance and collectively overshoot. Each run holds 14,000 tokens — sized from S21's real
+13,540 rather than the ~5,800 average, because S21 is the one a visitor is most likely to click.
+
+Two problems were written down before building this. Here is what happened to each:
+
+1. **The daily budget is per process**, and a platform can run more than one instance. Unresolved by
+   design: the budget is sized for the multiplier rather than pretending to be global, and the
+   caveat is on the page — `/demo/scenarios` reports `budget_scope: "per server instance"`. Shared
+   state would mean provisioning infrastructure for a demo button and front-running the phase whose
+   purpose is bringing it. Phase 2 replaces it.
+2. **`POST /runs` was reachable** and accepted arbitrary text, answering 503 only because no key was
+   deployed. Closed: it is behind its own off-by-default flag and answers **404, not 403**, since a
+   403 confirms an endpoint exists and invites someone to look for the way in.
+
+### What did building live mode teach that the plan did not predict?
+
+That a recording is a measurement, and measurements catch deployment bugs.
+
+S21's real run took **73.6 seconds**. `vercel.json` pinned `maxDuration: 60`. Live mode would have
+shipped with the platform killing the demo's headline scenario mid-stream — and in live mode there
+is no recording to fall back to, because the stream has already started and the headers are long
+gone. Nothing in the test suite would have found it: the limit is the platform's, the duration is
+the model's, and locally neither applies. What found it was reading the numbers already sitting in
+the nine recordings before trusting a config value written for a different mode.
+
+The second one is smaller and the same shape. A provider error raised inside `model.create()` leaves
+the agent loop without reaching `_finish`, so it records no `run_finished` — and the client closes
+its stream on the terminal event and nothing else. Every exit path records an ending (DD-012), which
+is true and was not sufficient: the failure path is not an exit from the loop, it is an escape from
+it. A failed live run now gets a synthesized ending labelled `provider_error`.
 
 ---
 
@@ -515,6 +554,9 @@ true. Per-customer authorization on reads arrives in Phase 10.
   to debug a distributed run. Phase 10.
 - **No retrieval.** The policy document is read whole, every time, which works at one document and
   will not at a hundred. Phase 6.
+- **The demo's rate limit and token budget are per process.** Correct on one instance, and a
+  ceiling multiplied by the instance count on a platform that scales. Sized for the multiplier and
+  disclosed on the page rather than hidden, which makes it honest but not right. Phase 2.
 
 ### What would you do differently if you started again?
 
@@ -531,6 +573,16 @@ behavior is the same instinct as over-fitting.
 
 ### What is least verified right now?
 
-That the demo page reads well to someone who has never seen the project. Its correctness is tested
-in both jsdom and against the live deployment, but "a visitor with no context can understand what
-happened" is an acceptance criterion no test can assert, and it has had very few real readers.
+Two things, in order.
+
+**That the demo page reads well to someone who has never seen the project.** Its correctness is
+tested in both jsdom and against the live deployment, but "a visitor with no context can understand
+what happened" is an acceptance criterion no test can assert, and it has had very few real readers.
+
+**That live mode works against a real provider.** Every control is tested, the streaming path is
+driven end to end, and the degraded path is verified against a real uvicorn server with `curl -N`
+rather than only through `TestClient` — which buffers, and would have reported a working stream
+either way. But the model behind all of it is scripted: no live run has been made through the
+endpoint against `gpt-5`, because that waits on a credential being deployed. The agent loop itself
+has 19/19 against the real model, so what is unverified is this layer's assumptions about a real
+provider's timing and failure shapes — exactly where the `maxDuration` bug lived.

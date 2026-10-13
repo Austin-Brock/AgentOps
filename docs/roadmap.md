@@ -87,14 +87,17 @@ plus a 20-scenario evaluation suite.
 
 ## Phase 1.5 — Live scenario demo
 
-**Deployed** — live at [agentops-weld.vercel.app](https://agentops-weld.vercel.app), nine
-scenarios, no credential in production. Live mode is the remaining piece. Full plan: [`phase-1.5.md`](phase-1.5.md).
+**Complete** — live at [agentops-weld.vercel.app](https://agentops-weld.vercel.app), nine
+scenarios, no credential in production. Live mode and its five controls are built and tested, and
+switched off until a credential is deployed (DD-015). Full plan: [`phase-1.5.md`](phase-1.5.md).
 
 A deployed page where a visitor picks a customer with a specific problem and watches the agent
-investigate and resolve it, tool call by tool call, including the calls it refuses. Eight fixed
+investigate and resolve it, tool call by tool call, including the calls it refuses. Nine fixed
 scenarios drawn from the Phase 1 evaluation dataset, replayed from recorded real runs by default
-with an opt-in live mode behind rate limits and a daily token budget. Hosted on Vercel rather than
-DigitalOcean (DD-014), since the page has no database and no credential.
+with an opt-in live mode behind a flag, a per-visitor rate limit, a daily token budget, and a
+concurrency cap — each of which degrades to the recording with a visible notice rather than
+erroring. Hosted on Vercel rather than DigitalOcean (DD-014), since the page has no database and
+no credential.
 
 Numbered 1.5 because it is an insertion driven by a product decision, not a step in the original
 learning sequence. See DD-011 for why it was pulled ahead of memory, and what that costs.
@@ -124,8 +127,9 @@ subscriber on the trace instead of a second loop.
 
 **Acceptance criteria** (abridged — see the full plan)
 - A visitor with no context understands what happened without reading documentation
-- All eight scenarios replay with no credentials configured
-- The client cannot cause the server to send a message outside the dataset
+- All nine scenarios replay with no credentials configured
+- The client cannot cause the server to send a message outside the dataset — including the live
+  endpoint, which accepts a POST and still takes nothing but a scenario id
 - Budget exhaustion degrades to replay with a visible notice, never an error
 - The Phase 1 eval suite passes unchanged — this adds a view, not behavior
 

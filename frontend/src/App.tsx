@@ -14,10 +14,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { formatElapsed, formatMoney, formatTokens, toRows, toSummary } from "./render";
-import { fetchCatalog, streamReplay, type Subscription } from "./stream";
-import type { Catalog, Scenario, TraceEvent } from "./wire";
+import { fetchCatalog, streamLive, streamReplay, type Subscription } from "./stream";
+import type { Catalog, LiveStatus, Notice, Scenario, TraceEvent } from "./wire";
 
 type Status = "idle" | "playing" | "done" | "error";
+
+/** What the visitor asked for, which is not always what they got. */
+type Mode = "replay" | "live";
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -26,6 +29,11 @@ export default function App() {
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [requested, setRequested] = useState<Mode>("replay");
+  // What the server actually served. A live request that no control allowed
+  // comes back as a recording, and the page has to say which one you watched
+  // rather than keep the label the button implied.
+  const [notice, setNotice] = useState<Notice | null>(null);
   const subscription = useRef<Subscription | null>(null);
 
   useEffect(() => {
@@ -35,6 +43,22 @@ export default function App() {
         setSelectedId(loaded.scenarios[0]?.id ?? null);
       })
       .catch((error: unknown) => setLoadError(String(error)));
+  }, []);
+
+  /**
+   * Re-read the catalog after a live run.
+   *
+   * Two things are stale by then: the visitor's remaining live runs and the
+   * day's token budget, and — because a live run creates a real refund — the
+   * order's `prior_refunds`. A page still showing "no prior refunds" under an
+   * order it just refunded is wrong about the thing it is demonstrating.
+   */
+  const refreshCatalog = useCallback(() => {
+    fetchCatalog()
+      .then(setCatalog)
+      .catch(() => {
+        /* The run is already on screen; a stale footer is not worth an error. */
+      });
   }, []);
 
   // A page left mid-replay must not leave a stream open behind it.
@@ -52,23 +76,40 @@ export default function App() {
     setEvents([]);
     setStatus("idle");
     setStreamError(null);
+    setNotice(null);
   }, []);
 
-  const play = useCallback(() => {
-    if (!selected) return;
-    subscription.current?.close();
-    setEvents([]);
-    setStreamError(null);
-    setStatus("playing");
-    subscription.current = streamReplay(selected.id, {
-      onEvent: (event) => setEvents((previous) => [...previous, event]),
-      onDone: () => setStatus("done"),
-      onError: (message) => {
-        setStreamError(message);
-        setStatus("error");
-      },
-    });
-  }, [selected]);
+  const start = useCallback(
+    (mode: Mode) => {
+      if (!selected) return;
+      subscription.current?.close();
+      setEvents([]);
+      setStreamError(null);
+      setNotice(null);
+      setRequested(mode);
+      setStatus("playing");
+
+      const handlers = {
+        onEvent: (event: TraceEvent) => setEvents((previous) => [...previous, event]),
+        onDone: () => {
+          setStatus("done");
+          if (mode === "live") refreshCatalog();
+        },
+        onError: (message: string) => {
+          setStreamError(message);
+          setStatus("error");
+        },
+        onNotice: setNotice,
+      };
+
+      subscription.current =
+        mode === "live" ? streamLive(selected.id, handlers) : streamReplay(selected.id, handlers);
+    },
+    [selected, refreshCatalog],
+  );
+
+  const play = useCallback(() => start("replay"), [start]);
+  const runLive = useCallback(() => start("live"), [start]);
 
   if (loadError) {
     return (
@@ -115,13 +156,25 @@ export default function App() {
         scenario={selected}
         status={status}
         onPlay={play}
+        onRunLive={runLive}
+        live={catalog.live}
         simulatedToday={catalog.simulated_today}
       />
 
+      {notice?.message && (
+        <p className={notice.reason === "run_failed" ? "notice error" : "notice"} role="status">
+          {notice.message}
+        </p>
+      )}
       {streamError && <p className="notice error">{streamError}</p>}
 
       <Trace events={events} status={status} />
-      <SummaryBar events={events} scenario={selected} />
+      <SummaryBar
+        events={events}
+        scenario={selected}
+        served={notice?.mode ?? requested}
+        requested={requested}
+      />
       <Colophon />
     </main>
   );
@@ -148,11 +201,12 @@ function Colophon() {
         happen.
       </p>
       <p>
-        <strong>What you are watching.</strong> A recorded run of the real agent against{" "}
-        <code>gpt-5</code>, replayed at the pace it happened. The scenarios come from the same
-        evaluation dataset the test suite grades against, so the demo and the measurements cannot
-        disagree. Nothing here is scripted: the agent chose each tool from what the previous result
-        told it.
+        <strong>What you are watching.</strong> By default, a recorded run of the real agent against{" "}
+        <code>gpt-5</code>, replayed at the pace it happened — and where live mode is switched on,{" "}
+        <em>Run live</em> calls the model now, inside a per-visitor rate limit and a daily token
+        budget. The scenarios come from the same evaluation dataset the test suite grades against,
+        so the demo and the measurements cannot disagree. Nothing here is scripted: the agent chose
+        each tool from what the previous result told it.
       </p>
       <p>
         <a href={REPO} target="_blank" rel="noreferrer">
@@ -186,11 +240,15 @@ function ScenarioCard({
   scenario,
   status,
   onPlay,
+  onRunLive,
+  live,
   simulatedToday,
 }: {
   scenario: Scenario;
   status: Status;
   onPlay: () => void;
+  onRunLive: () => void;
+  live: LiveStatus | undefined;
   simulatedToday: string;
 }) {
   const { customer, order, expected, replay } = scenario;
@@ -230,7 +288,15 @@ function ScenarioCard({
         >
           {status === "playing" ? "Replaying…" : status === "done" ? "Replay again" : "Replay"}
         </button>
-        <button type="button" className="secondary" disabled title="Arrives in step 6">
+        <button
+          type="button"
+          className="secondary"
+          onClick={onRunLive}
+          disabled={status === "playing" || !live?.available}
+          // Why the button is off, in the server's words. A disabled control
+          // with no explanation reads as a broken page rather than a budget.
+          title={live?.available ? "Run this scenario against the real model now" : liveWhy(live)}
+        >
           Run live
         </button>
         {replay.available ? (
@@ -248,11 +314,49 @@ function ScenarioCard({
       </div>
 
       <p className="aside">
-        This is a recorded run of the real agent, not a mock. The message is resolved on the server
-        from the evaluation dataset; this page only sends a scenario id. Dates are relative to{" "}
-        {simulatedToday}.
+        Replay is a recorded run of the real agent, not a mock; Run live calls the model now. Either
+        way the message is resolved on the server from the evaluation dataset — this page only ever
+        sends a scenario id. Dates are relative to {simulatedToday}.
       </p>
+
+      <LiveAllowance live={live} />
     </section>
+  );
+}
+
+/** Why Run live is unavailable, for the button's tooltip. */
+function liveWhy(live: LiveStatus | undefined): string {
+  if (!live) return "Live mode is not available on this deployment.";
+  return live.message ?? "Live mode is not available right now.";
+}
+
+/**
+ * What a live run costs and what is left of it.
+ *
+ * On screen rather than only in the design docs, including the awkward part:
+ * the budget is counted per server instance, so a deployment running several
+ * has a real ceiling of this number times the instance count. Claiming a global
+ * cap the code does not enforce would be the kind of overstatement this project
+ * writes down instead of making (DD-015).
+ */
+function LiveAllowance({ live }: { live: LiveStatus | undefined }) {
+  if (!live) return null;
+
+  return (
+    <p className="aside allowance">
+      {live.available ? (
+        <>
+          Live runs: <strong>{live.runs_remaining_this_hour ?? live.runs_per_hour}</strong> left
+          this hour of {live.runs_per_hour}.{" "}
+        </>
+      ) : (
+        <>Live runs are unavailable right now. </>
+      )}
+      Daily budget {live.tokens_remaining_today.toLocaleString("en-US")} of{" "}
+      {live.daily_token_budget.toLocaleString("en-US")} tokens remaining, counted{" "}
+      {live.budget_scope} — so a deployment running more than one instance has a correspondingly
+      higher real ceiling.
+    </p>
   );
 }
 
@@ -294,13 +398,29 @@ function Trace({ events, status }: { events: TraceEvent[]; status: Status }) {
   );
 }
 
-function SummaryBar({ events, scenario }: { events: TraceEvent[]; scenario: Scenario }) {
+function SummaryBar({
+  events,
+  scenario,
+  served,
+  requested,
+}: {
+  events: TraceEvent[];
+  scenario: Scenario;
+  /** What the server actually sent: a live run, or a recording. */
+  served: Mode;
+  /** What the visitor pressed. Different from `served` when a control fired. */
+  requested: Mode;
+}) {
   const summary = useMemo(() => toSummary(events), [events]);
   if (!summary) return null;
 
   return (
     <section className="summary">
       <div className="summary-line">
+        <span className={served === "live" ? "mode mode-live" : "mode"}>
+          {served === "live" ? "ran live just now" : "recorded run"}
+          {requested === "live" && served === "replay" && " (live was unavailable)"}
+        </span>
         <span>
           <strong>{summary.toolsUsed}</strong> tools used
         </span>

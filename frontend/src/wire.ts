@@ -141,9 +141,42 @@ export interface Scenario {
   replay: ReplayMeta;
 }
 
+/**
+ * Why a run was served from a recording instead of run live, as the page says
+ * it. The server owns the wording: it is what knows which control fired, and a
+ * client mapping codes to sentences would drift the moment a reason is added.
+ *
+ * `mode: "live"` with `reason: "run_failed"` is the one notice that arrives
+ * mid-stream rather than first — a run that died after it had already started.
+ */
+export interface Notice {
+  mode: "live" | "replay";
+  reason: string | null;
+  message: string | null;
+}
+
+/** Whether live mode can be used right now, and what it costs the visitor. */
+export interface LiveStatus {
+  available: boolean;
+  reason: string | null;
+  message: string | null;
+  runs_per_hour: number;
+  runs_remaining_this_hour: number | null;
+  daily_token_budget: number;
+  tokens_remaining_today: number;
+  /** "per server instance" — the counters are per process, and the page says so. */
+  budget_scope: string;
+}
+
 export interface Catalog {
   version: number;
   /** Business time is simulated against a fixed date, so the page shows it. */
   simulated_today: string;
   scenarios: Scenario[];
+  /**
+   * Optional because a server older than this build does not send it. Absent is
+   * treated as unavailable rather than as available: a page that offers a paid
+   * button on a guess is the wrong way round.
+   */
+  live?: LiveStatus;
 }

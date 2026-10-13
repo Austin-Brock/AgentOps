@@ -94,6 +94,52 @@ class Settings(BaseSettings):
         ),
     )
 
+    # --- The public surface (Phase 1.5 step 6) ---
+    #
+    # Everything below is off or small by default. A deployment that forgets to
+    # configure the demo gets the safe configuration rather than the open one,
+    # which is the only default worth having on a page anyone can load.
+    open_runs_enabled: bool = Field(
+        default=False,
+        description=(
+            "Expose POST /runs, which accepts arbitrary customer text. Off by "
+            "default: on a public origin it is exactly the open prompt field "
+            "the fixed-scenario demo exists to avoid (DD-011). Local development "
+            "turns it on to drive the agent over HTTP."
+        ),
+    )
+
+    demo_live_enabled: bool = Field(
+        default=False,
+        description=(
+            "Allow the demo to run a scenario against the real model. Off by "
+            "default, and the kill switch: clearing it degrades every live "
+            "request to replay without taking the page down."
+        ),
+    )
+    demo_live_runs_per_hour: int = Field(
+        default=3,
+        description="Live runs allowed per visitor per hour, keyed on client IP.",
+    )
+    demo_live_daily_token_budget: int = Field(
+        default=120_000,
+        description=(
+            "Tokens the demo may spend on live runs per day, per process. A "
+            "scenario costs roughly 5,800, so this is about 20 runs. Deliberately "
+            "well under a comfortable daily spend because the counter is "
+            "per-process and a platform may run several (DD-015): the real "
+            "ceiling is this number times the instance count."
+        ),
+    )
+    demo_live_max_concurrent: int = Field(
+        default=2,
+        description=(
+            "Live runs in flight at once. The rate limit is per visitor, so "
+            "without this a burst of distinct IPs can start an unbounded number "
+            "of paid runs inside one window."
+        ),
+    )
+
     @model_validator(mode="after")
     def _resolve_defaults(self) -> Settings:
         if self.provider not in DEFAULT_MODELS:
