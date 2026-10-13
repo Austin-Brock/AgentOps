@@ -1,0 +1,15 @@
+# Runtime dependencies for the deployed demo.
+#
+# The provider SDKs are here because `app.llm.factory` imports both adapters at
+# module load, not because the deployed function calls either. What makes the
+# deployment safe is the absence of a credential, not the absence of a library:
+# with no key set, replay serves recorded runs from disk and `/runs` answers 503
+# rather than reaching a provider. Live mode (step 6) adds the key, together
+# with the rate limit and budget that make a public key-holding endpoint safe.
+anthropic>=0.80
+openai>=1.60
+fastapi>=0.115
+pydantic>=2.9
+pydantic-settings>=2.5
+pyyaml>=6.0
+python-dotenv>=1.0

@@ -1,0 +1,24 @@
+# Kept out of the deployment bundle. Everything here is either rebuilt by the
+# build command, irrelevant to serving the demo, or local-only.
+#
+# No markdown pattern here on purpose. `*.md` would also match
+# data/documents/refund_policy.md — the policy document the agent reads — since
+# these patterns follow .gitignore semantics, and the few kilobytes of
+# root-level markdown are not worth the risk of a subtle exclusion. The
+# deployed function needs, at runtime:
+#
+#   data/seed/*.json                  customer and order facts
+#   data/documents/refund_policy.md   what get_refund_policy returns
+#   data/demo/scenarios.yaml          which scenarios the page lists
+#   data/demo/replays/*.json          the recorded runs
+#   evaluations/datasets/*.yaml       the customer messages
+
+backend/.venv/
+backend/tests/
+frontend/node_modules/
+frontend/dist/
+experiments/
+evaluations/results/
+docs/
+skills/
+.env
