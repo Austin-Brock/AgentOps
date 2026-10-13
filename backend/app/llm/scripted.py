@@ -1,27 +1,47 @@
-"""A scripted model client for deterministic tests.
+"""Scripted model clients for deterministic tests.
 
-The agent loop's mechanics — termination, step ceilings, tool-error handling,
+The loop's mechanics — termination, step ceilings, tool-error handling,
 permission denial, message threading — are ordinary logic and deserve ordinary
 tests. Paying for tokens to assert that a step counter increments is a bad
 trade, and a suite that needs credentials is a suite that does not run (DD-005).
+
+The scripted client takes a message formatter, so the same loop can be driven
+through Anthropic's wire format and OpenAI's and asserted against both. That is
+how the seam stays honest rather than merely documented.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
-from app.llm.client import ModelResponse, TextBlock, ToolUseBlock, Usage
+from app.llm import anthropic_client, openai_client
+from app.llm.client import (
+    END_TURN,
+    TOOL_USE,
+    ModelResponse,
+    TextBlock,
+    ToolOutcome,
+    ToolUseBlock,
+    Usage,
+)
+
+Formatter = Callable[[Sequence[ToolOutcome]], list[dict[str, Any]]]
+
+FORMATTERS: dict[str, Formatter] = {
+    "anthropic": anthropic_client.tool_result_messages,
+    "openai": openai_client.tool_result_messages,
+}
 
 
-def say(text: str, *, stop_reason: str = "end_turn") -> ModelResponse:
+def say(text: str, *, stop_reason: str = END_TURN) -> ModelResponse:
     """A final text answer."""
     return ModelResponse(
         stop_reason=stop_reason,
         blocks=(TextBlock(text=text),),
         usage=Usage(input_tokens=10, output_tokens=5),
         model="scripted",
-        assistant_content=[{"type": "text", "text": text}],
+        assistant_message={"role": "assistant", "content": [{"type": "text", "text": text}]},
     )
 
 
@@ -52,11 +72,11 @@ def calls(
         blocks.append(ToolUseBlock(id=resolved_id, name=name, input=tool_input))
         content.append({"type": "tool_use", "id": resolved_id, "name": name, "input": tool_input})
     return ModelResponse(
-        stop_reason="tool_use",
+        stop_reason=TOOL_USE,
         blocks=tuple(blocks),
         usage=Usage(input_tokens=10, output_tokens=5),
         model="scripted",
-        assistant_content=content,
+        assistant_message={"role": "assistant", "content": content},
     )
 
 
@@ -68,9 +88,17 @@ class ScriptedModelClient:
     which is a result worth seeing.
     """
 
-    def __init__(self, responses: Sequence[ModelResponse]) -> None:
+    def __init__(
+        self, responses: Sequence[ModelResponse], *, wire_format: str = "anthropic"
+    ) -> None:
         self._responses = list(responses)
+        self._format = FORMATTERS[wire_format]
+        self.wire_format = wire_format
         self.calls: list[dict[str, Any]] = []
+
+    @property
+    def model_name(self) -> str:
+        return f"scripted:{self.wire_format}"
 
     @property
     def call_count(self) -> int:
@@ -101,6 +129,9 @@ class ScriptedModelClient:
             )
         return self._responses.pop(0)
 
+    def tool_result_messages(self, outcomes: Sequence[ToolOutcome]) -> list[dict[str, Any]]:
+        return self._format(outcomes)
+
 
 class LoopingModelClient:
     """Always asks for the same tool. Used to prove the step ceiling holds."""
@@ -109,6 +140,10 @@ class LoopingModelClient:
         self.tool_name = tool_name
         self.tool_input = tool_input or {}
         self.calls: list[dict[str, Any]] = []
+
+    @property
+    def model_name(self) -> str:
+        return "scripted:looping"
 
     @property
     def call_count(self) -> int:
@@ -123,3 +158,6 @@ class LoopingModelClient:
     ) -> ModelResponse:
         self.calls.append({"messages": [dict(m) for m in messages]})
         return call(self.tool_name, self.tool_input, call_id=f"toolu_loop_{len(self.calls)}")
+
+    def tool_result_messages(self, outcomes: Sequence[ToolOutcome]) -> list[dict[str, Any]]:
+        return anthropic_client.tool_result_messages(outcomes)

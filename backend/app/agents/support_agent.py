@@ -131,9 +131,9 @@ class SupportAgent:
                 output_tokens=response.usage.output_tokens,
             )
 
-            # Thinking blocks and tool_use blocks are echoed back exactly as the
-            # provider produced them; the loop never rewrites an assistant turn.
-            messages.append({"role": "assistant", "content": response.assistant_content})
+            # The adapter built this turn; the loop appends it without inspecting
+            # it, so provider-internal reasoning survives the round trip intact.
+            messages.append(response.assistant_message)
 
             if response.stop_reason == "refusal":
                 steps.append(
@@ -168,12 +168,9 @@ class SupportAgent:
             steps.append(
                 AgentStep(index, response.stop_reason, response.text, invocations, response.usage)
             )
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [inv.to_tool_result_param() for inv in invocations],
-                }
-            )
+            # How results reach the model is the adapter's business: Anthropic
+            # wants one message with many blocks, OpenAI wants one message each.
+            messages.extend(self.model.tool_result_messages([inv.outcome for inv in invocations]))
 
         trace.record("run_finished", status=MAX_STEPS_EXCEEDED, steps=len(steps))
         return self._finish(

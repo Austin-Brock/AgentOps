@@ -36,8 +36,8 @@ other safety requirements are enforced in application code — never left to the
 |---|---|
 | Current phase | **Phase 1 — Agent from scratch** (code complete, awaiting a live evaluation run) |
 | Agent runtime | Custom Python loop, 3 business tools + 1 deliberately unauthorized |
-| Model provider | Anthropic (`claude-opus-5`) |
-| Offline tests | 62 passing, no API key required |
+| Model providers | Anthropic and OpenAI, selected by `AGENTOPS_PROVIDER` |
+| Offline tests | 90 passing, no API key required |
 | Live scenarios | 20 defined, not yet run |
 
 See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance gates, and
@@ -48,10 +48,11 @@ See [`docs/roadmap.md`](docs/roadmap.md) for all 10 phases and their acceptance 
 ```bash
 make install     # uv venv + dependencies
 make demo        # watch the agent work, no credentials needed
-make test        # 62 offline tests; no credentials needed
+make test        # 90 offline tests; no credentials needed
 make lint
 
-export ANTHROPIC_API_KEY=...
+cp .env.example .env && $EDITOR .env    # add your provider key
+make preflight   # verify the credential and list reachable models
 make eval        # the 20-scenario evaluation suite
 make serve       # FastAPI on :8000 — POST /runs
 ```

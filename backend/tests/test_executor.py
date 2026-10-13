@@ -131,15 +131,16 @@ class TestFailureModes:
         assert first.result.payload["retryable"] is True
         assert second.is_error is False
 
-    async def test_error_results_are_serializable_for_the_model(
+    async def test_failures_surface_as_a_neutral_outcome(
         self, executor: ToolExecutor, ctx: ToolContext
     ) -> None:
+        """The executor emits a provider-neutral outcome; adapters format it."""
         invocation = await executor.execute(use("lookup_order", order_id="9999"), ctx)
-        param = invocation.to_tool_result_param()
-        assert param["type"] == "tool_result"
-        assert param["is_error"] is True
-        assert param["tool_use_id"] == "toolu_lookup_order"
-        assert "order_not_found" in param["content"]
+        outcome = invocation.outcome
+        assert outcome.tool_use_id == "toolu_lookup_order"
+        assert outcome.tool_name == "lookup_order"
+        assert outcome.is_error is True
+        assert outcome.payload["error"] == "order_not_found"
 
 
 class TestVisibility:

@@ -1,8 +1,19 @@
-"""The model seam.
+"""The provider seam.
 
-Nothing outside this module knows which provider is in use (DD-003), and the
-agent loop depends only on the `ModelClient` protocol — which is what lets the
-loop be tested without network access (DD-005).
+An earlier version of this file claimed nothing outside it knew which provider
+was in use. That was not true: the agent loop built tool-result messages in
+Anthropic's wire format, and the executor stamped Anthropic's `tool_result`
+block type. Both leaked.
+
+The protocol below fixes that by making message *construction* a provider
+responsibility, not the loop's. Providers disagree about more than field names:
+
+    Anthropic  one user message carrying N tool_result blocks
+    OpenAI     N separate messages, role="tool", one tool_call_id each
+
+A loop that hardcodes either shape is hardcoding a provider. So the loop asks
+the client to format both the assistant turn and the tool results, and never
+inspects either.
 """
 
 from __future__ import annotations
@@ -10,8 +21,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
-
-from app.config import Settings, get_settings
 
 
 @dataclass(frozen=True)
@@ -27,17 +36,32 @@ class ToolUseBlock:
 
 
 @dataclass(frozen=True)
-class ThinkingBlock:
-    """Present for provenance only. The loop never reads or edits its content."""
+class ReasoningBlock:
+    """A provider's internal reasoning. Carried for provenance; never inspected."""
 
 
-ContentBlock = TextBlock | ToolUseBlock | ThinkingBlock
+ContentBlock = TextBlock | ToolUseBlock | ReasoningBlock
+
+
+@dataclass(frozen=True)
+class ToolOutcome:
+    """A executed tool call, in provider-neutral terms.
+
+    Deliberately not `ToolInvocation` — that type belongs to the tool layer, and
+    importing it here would make the seam depend on what it is a seam for.
+    """
+
+    tool_use_id: str
+    tool_name: str
+    payload: dict[str, Any]
+    is_error: bool
 
 
 @dataclass(frozen=True)
 class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
+    reasoning_tokens: int = 0
     cache_read_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
 
@@ -45,10 +69,20 @@ class Usage:
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
             cache_read_input_tokens=self.cache_read_input_tokens + other.cache_read_input_tokens,
-            cache_creation_input_tokens=self.cache_creation_input_tokens
-            + other.cache_creation_input_tokens,
+            cache_creation_input_tokens=(
+                self.cache_creation_input_tokens + other.cache_creation_input_tokens
+            ),
         )
+
+
+# Normalized stop reasons. Every adapter maps its provider's vocabulary onto
+# these, so the loop's termination logic is written once.
+TOOL_USE = "tool_use"
+END_TURN = "end_turn"
+MAX_TOKENS = "max_tokens"
+REFUSAL = "refusal"
 
 
 @dataclass(frozen=True)
@@ -57,10 +91,10 @@ class ModelResponse:
     blocks: tuple[ContentBlock, ...]
     usage: Usage
     model: str
-    # Exactly what to send back as the assistant turn. Passed through opaquely so
-    # that provider-specific blocks — thinking signatures above all — survive the
-    # round trip unmodified.
-    assistant_content: Any = field(repr=False, default=None)
+    # The complete assistant message to append to history. Opaque: OpenAI hangs
+    # tool calls off the message, Anthropic puts them in content, and the loop
+    # must not care which.
+    assistant_message: dict[str, Any] = field(repr=False, default_factory=dict)
 
     @property
     def text(self) -> str:
@@ -73,6 +107,15 @@ class ModelResponse:
 
 @runtime_checkable
 class ModelClient(Protocol):
+    """What the agent loop requires of a model provider.
+
+    `tools` are neutral specs — `{"name", "description", "input_schema"}` — and
+    each adapter translates them into its provider's tool format.
+    """
+
+    @property
+    def model_name(self) -> str: ...
+
     async def create(
         self,
         *,
@@ -81,81 +124,4 @@ class ModelClient(Protocol):
         tools: Sequence[dict[str, Any]],
     ) -> ModelResponse: ...
 
-
-class AnthropicModelClient:
-    """Calls the Anthropic Messages API.
-
-    Model choice, effort, and token accounting live here rather than in the agent
-    so that Phase 8 can put a routing gateway behind this same interface.
-    """
-
-    def __init__(
-        self,
-        *,
-        settings: Settings | None = None,
-        api_key: str | None = None,
-        client: Any | None = None,
-    ) -> None:
-        self.settings = settings or get_settings()
-        if client is not None:
-            self._client = client
-        else:
-            from anthropic import AsyncAnthropic
-
-            self._client = AsyncAnthropic(api_key=api_key) if api_key else AsyncAnthropic()
-
-    def credential_available(self) -> bool:
-        """Whether a credential could be resolved at construction time.
-
-        The SDK defers auth validation until the first request, which turns a
-        missing key into a 500 deep inside a run. Checking up front lets the API
-        answer with a clear 503 instead. Note the limitation: a credential that
-        resolves lazily — an `ant auth login` profile, say — reads as unavailable
-        here, so this gates the error message, never the request itself.
-        """
-        return bool(
-            getattr(self._client, "api_key", None) or getattr(self._client, "auth_token", None)
-        )
-
-    async def create(
-        self,
-        *,
-        system: str,
-        messages: list[dict[str, Any]],
-        tools: Sequence[dict[str, Any]],
-    ) -> ModelResponse:
-        response = await self._client.messages.create(
-            model=self.settings.model,
-            max_tokens=self.settings.max_tokens,
-            system=system,
-            messages=messages,
-            tools=list(tools),
-            thinking={"type": "adaptive"},
-            output_config={"effort": self.settings.effort},
-        )
-        return ModelResponse(
-            stop_reason=response.stop_reason or "end_turn",
-            blocks=tuple(_normalize(block) for block in response.content),
-            usage=Usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-                cache_read_input_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
-                cache_creation_input_tokens=getattr(
-                    response.usage, "cache_creation_input_tokens", 0
-                )
-                or 0,
-            ),
-            model=response.model,
-            assistant_content=response.content,
-        )
-
-
-def _normalize(block: Any) -> ContentBlock:
-    match block.type:
-        case "text":
-            return TextBlock(text=block.text)
-        case "tool_use":
-            return ToolUseBlock(id=block.id, name=block.name, input=dict(block.input or {}))
-        case _:
-            # thinking, redacted_thinking, and anything a future model adds.
-            return ThinkingBlock()
+    def tool_result_messages(self, outcomes: Sequence[ToolOutcome]) -> list[dict[str, Any]]: ...

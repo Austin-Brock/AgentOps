@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +24,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env", override=False)
 
 
+ANTHROPIC = "anthropic"
+OPENAI = "openai"
+
+# Used when no model is configured explicitly. Verify with `make preflight`,
+# which lists what the credential can actually reach — model availability varies
+# by account and moves faster than any hardcoded default.
+DEFAULT_MODELS = {ANTHROPIC: "claude-opus-5", OPENAI: "gpt-5"}
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AGENTOPS_",
@@ -32,9 +41,24 @@ class Settings(BaseSettings):
     )
 
     # --- Model ---
-    model: str = "claude-opus-5"
+    provider: str = Field(
+        default=ANTHROPIC,
+        description="Which adapter to use: 'anthropic' or 'openai'.",
+    )
+    model: str = Field(
+        default="",
+        description="Model id. Resolved from DEFAULT_MODELS for the provider when blank.",
+    )
     effort: str = "medium"
     max_tokens: int = 4096
+    reasoning_effort_supported: bool = Field(
+        default=True,
+        description=(
+            "Whether to send a reasoning-effort parameter. Reasoning models accept "
+            "it; older chat models reject the request outright, so this is a "
+            "per-model switch rather than something inferred from the name."
+        ),
+    )
 
     # --- Agent loop ---
     max_steps: int = Field(
@@ -69,6 +93,16 @@ class Settings(BaseSettings):
             "discovering a tool must never imply authorization to run it."
         ),
     )
+
+    @model_validator(mode="after")
+    def _resolve_defaults(self) -> Settings:
+        if self.provider not in DEFAULT_MODELS:
+            raise ValueError(
+                f"unknown provider {self.provider!r}; expected one of {sorted(DEFAULT_MODELS)}"
+            )
+        if not self.model:
+            self.model = DEFAULT_MODELS[self.provider]
+        return self
 
 
 @lru_cache

@@ -9,14 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from anthropic import AnthropicError
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from app.agents.support_agent import AgentRun, SupportAgent
 from app.config import get_settings
 from app.data.store import DataStore
-from app.llm.client import AnthropicModelClient
+from app.llm.errors import CREDENTIAL_ENV_VARS, ProviderError
+from app.llm.factory import build_model_client, credential_available
 from app.tools.base import ToolContext
 from app.tools.toolset import SUPPORT_AGENT_SCOPES, build_support_toolset
 
@@ -76,6 +76,7 @@ async def health() -> dict[str, Any]:
     settings = get_settings()
     return {
         "status": "ok",
+        "provider": settings.provider,
         "model": settings.model,
         "orders_loaded": len(_store.orders),
         "tools": len(_registry),
@@ -103,17 +104,21 @@ async def list_tools() -> dict[str, Any]:
 
 @app.post("/runs", response_model=RunResponse)
 async def create_run(request: RunRequest) -> RunResponse:
-    model = AnthropicModelClient()
-    if not model.credential_available():
+    settings = get_settings()
+    model = build_model_client(settings)
+    if not credential_available(model):
         raise HTTPException(
             status_code=503,
-            detail="No Anthropic credential resolved. Set ANTHROPIC_API_KEY and retry.",
+            detail=(
+                f"No {settings.provider} credential resolved. Set "
+                f"{CREDENTIAL_ENV_VARS[settings.provider]} and retry."
+            ),
         )
 
-    agent = SupportAgent(model=model, registry=_registry, store=_store)
+    agent = SupportAgent(model=model, registry=_registry, store=_store, settings=settings)
     try:
         run = await agent.run(request.message, customer_id=request.customer_id)
-    except AnthropicError as exc:
+    except ProviderError as exc:
         # The provider failed, not the agent. Phase 8 turns this into routing and
         # fallback; for now it is reported honestly as an upstream failure.
         raise HTTPException(status_code=502, detail=f"Model provider error: {exc}") from exc

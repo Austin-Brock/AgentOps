@@ -10,8 +10,11 @@ allowed to do with them.
 backend/app/
   agents/support_agent.py   the loop
   agents/prompts.py         instructions (what for, what not to do — not a script)
-  llm/client.py             provider seam: ModelClient protocol + Anthropic implementation
-  llm/scripted.py           scripted + looping test doubles
+  llm/client.py             provider seam: neutral types + the ModelClient protocol
+  llm/anthropic_client.py   Anthropic adapter
+  llm/openai_client.py      OpenAI adapter
+  llm/factory.py            provider name -> adapter (Phase 8 replaces with routing)
+  llm/scripted.py           scripted + looping test doubles, per wire format
   tools/base.py             Tool, ToolContext, ToolError, fault injection
   tools/registry.py         what is advertised to the model
   tools/executor.py         authorize -> validate -> execute -> turn failures into data
@@ -31,10 +34,11 @@ cd backend
 uv venv --python 3.11 .venv && uv pip install -e '.[dev]'
 
 .venv/bin/python scripts/demo.py                # six narrated runs, no API key needed
-.venv/bin/python -m pytest                      # 62 tests, no API key needed
+.venv/bin/python -m pytest                      # 90 tests, no API key needed
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 
-export ANTHROPIC_API_KEY=...                    # needed from here down
+cp ../.env.example ../.env                      # then add your key; needed below
+.venv/bin/python scripts/preflight.py           # verify credential + list models
 .venv/bin/python -m app.evaluation.run          # the 20 scenarios
 .venv/bin/uvicorn app.main:app --reload         # then POST /runs
 ```
@@ -79,6 +83,12 @@ advance so recovery is a test rather than a hope.
 **Parallel tool results return in one turn.** When the model requests several tools at once,
 all results come back in a single user message. Splitting them across turns teaches the
 model to stop asking for tools in parallel.
+
+**The loop does not know which provider it is talking to.** Message construction — the assistant
+turn and the tool results — belongs to the adapter, because that is where providers actually
+disagree. `tests/test_providers.py` drives the same scripted run through both wire formats and
+asserts identical agent behavior, so the neutrality is tested rather than claimed. See DD-009 for
+what the first version of this got wrong.
 
 **The clock is fixed.** Business data is evaluated against `simulated_today`
 (2026-10-12) so that eligibility windows — and therefore evaluation results — do not drift

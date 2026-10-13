@@ -1,8 +1,9 @@
 """Verify the model path end to end before spending money on the full suite.
 
-Reports whether a credential resolved — masked, never printed — and makes one
-minimal request to confirm it actually authenticates. Costs a fraction of a cent
-and turns "the eval failed on all 20 scenarios" into a one-line answer.
+Reports whether a credential resolved — masked, never printed — lists the models
+that credential can actually reach, and makes one minimal request to confirm it
+authenticates. Costs a fraction of a cent, and turns "the eval failed on all 20
+scenarios" into a one-line answer.
 
     make preflight
 """
@@ -14,7 +15,8 @@ import os
 import sys
 
 from app.config import REPO_ROOT, Settings
-from app.llm.client import AnthropicModelClient
+from app.llm.errors import CREDENTIAL_ENV_VARS
+from app.llm.factory import build_model_client, credential_available
 
 
 def mask(secret: str) -> str:
@@ -23,25 +25,40 @@ def mask(secret: str) -> str:
 
 async def main() -> int:
     settings = Settings()
+    env_var = CREDENTIAL_ENV_VARS[settings.provider]
+
     print(f"  repo root   : {REPO_ROOT}")
     print(f"  .env present: {(REPO_ROOT / '.env').exists()}")
+    print(f"  provider    : {settings.provider}")
 
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    token = os.environ.get("ANTHROPIC_AUTH_TOKEN")
-    if key:
-        print(f"  credential  : ANTHROPIC_API_KEY = {mask(key)}")
-    elif token:
-        print(f"  credential  : ANTHROPIC_AUTH_TOKEN = {mask(token)}")
-    else:
-        print("  credential  : NONE FOUND")
+    secret = os.environ.get(env_var)
+    print(f"  credential  : {env_var} = {mask(secret) if secret else 'NOT FOUND'}")
+
+    client = build_model_client(settings)
+    if not credential_available(client):
         print("\n  Add your key to the repo-root .env file (it is gitignored):")
-        print("      echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env")
+        print(f"      echo '{env_var}=...' >> .env")
+        print("\n  To switch providers, set AGENTOPS_PROVIDER in .env")
+        print(f"      (currently '{settings.provider}'; valid: anthropic, openai)")
         return 1
 
     print(f"  model       : {settings.model} (effort={settings.effort})")
-    print("\n  Making one minimal request to verify authentication...")
 
-    client = AnthropicModelClient(settings=settings)
+    lister = getattr(client, "list_models", None)
+    if callable(lister):
+        try:
+            available = await lister()
+        except Exception as exc:  # noqa: BLE001 - informational, must not block preflight
+            print(f"  available   : could not list ({type(exc).__name__})")
+        else:
+            print(f"  available   : {', '.join(available[:12])}")
+            if settings.model not in available:
+                print(
+                    f"\n  WARNING: {settings.model!r} is not in the list above. "
+                    "Set AGENTOPS_MODEL in .env to one that is."
+                )
+
+    print("\n  Making one minimal request to verify authentication...")
     try:
         response = await client.create(
             system="Reply with the single word: ready",
@@ -55,7 +72,9 @@ async def main() -> int:
     print(f"  OK — {response.model} replied {response.text.strip()[:40]!r}")
     print(
         f"  tokens: {response.usage.input_tokens} in / "
-        f"{response.usage.output_tokens} out (stop_reason={response.stop_reason})"
+        f"{response.usage.output_tokens} out "
+        f"({response.usage.reasoning_tokens} reasoning) "
+        f"stop_reason={response.stop_reason}"
     )
     print("\n  Ready. Next: make eval")
     return 0

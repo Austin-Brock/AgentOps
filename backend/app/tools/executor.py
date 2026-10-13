@@ -7,14 +7,13 @@ cannot have side effects.
 
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import ValidationError
 
-from app.llm.client import ToolUseBlock
+from app.llm.client import ToolOutcome, ToolUseBlock
 from app.observability.trace import RunTrace
 from app.tools.base import ToolContext, ToolError, ToolResult
 from app.tools.registry import ToolRegistry
@@ -33,13 +32,15 @@ class ToolInvocation:
     def is_error(self) -> bool:
         return self.result.is_error
 
-    def to_tool_result_param(self) -> dict[str, Any]:
-        return {
-            "type": "tool_result",
-            "tool_use_id": self.tool_use_id,
-            "content": json.dumps(self.result.payload, default=str),
-            "is_error": self.result.is_error,
-        }
+    @property
+    def outcome(self) -> ToolOutcome:
+        """The provider-neutral form. The adapter decides how it reaches the model."""
+        return ToolOutcome(
+            tool_use_id=self.tool_use_id,
+            tool_name=self.tool_name,
+            payload=self.result.payload,
+            is_error=self.result.is_error,
+        )
 
 
 @dataclass

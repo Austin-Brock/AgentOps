@@ -118,3 +118,51 @@ cannot reproduce is not a measurement.
 **Consequence:** the clock is a setting, so an experiment can move it deliberately — which is
 how the window-boundary cases get tested. Real wall-clock time arrives with Phase 9's durable
 execution, where elapsed time is part of what is being tested.
+
+---
+
+## DD-009 — Both providers, and an honestly neutral seam
+
+**Supersedes DD-003.**
+
+**What DD-003 got wrong, in two parts.**
+
+First, the provider choice. DD-003 presented Anthropic as a reasoned decision. It was not: the
+plan said "OpenAI or Anthropic," no credential was present to infer from, and the Anthropic API
+reference was loaded in the authoring context. That is a default, not an analysis, and writing it
+up as the latter made it harder to revisit. What is actually defensible is *one provider for Phase
+1* — it keeps the phase about the agent loop instead of about abstraction layers. Which one was
+arbitrary.
+
+Second, the seam. DD-003 claimed nothing outside `app/llm/` knew the provider. Two places did:
+the agent loop built tool-result messages in Anthropic's wire format, and the tool executor
+stamped Anthropic's `tool_result` block type. The seam covered the *request*, not the
+*conversation* — which is the half that actually differs:
+
+| | Anthropic | OpenAI |
+|---|---|---|
+| System prompt | top-level field | a message in the array |
+| Tool specs | `{name, description, input_schema}` | nested under `{"type": "function", ...}` |
+| Tool calls | blocks inside assistant content | `tool_calls` on the assistant message |
+| Tool results | one user message, N `tool_result` blocks | N messages, `role: "tool"`, one id each |
+| Arguments | a parsed object | a JSON **string**, not guaranteed to parse |
+
+**Decision:** support both providers. The `ModelClient` protocol now owns message construction —
+`create()` for the request, `tool_result_messages()` for the results — so the loop appends what
+the adapter hands it and never inspects either. Provider stop reasons are normalized onto one
+vocabulary so termination logic is written once. `app/llm/factory.py` is the single place a
+provider name maps to an implementation.
+
+**Why both rather than swapping:** Phase 8's deliverable *is* multi-provider routing and
+fallback, so a second adapter is work that phase needs regardless. Phase 3's experiments get a
+second model to compare against. And the cost was low — the whole coupling was ~160 lines of
+adapter plus two leaked lines, out of ~2,250 lines of application code. The tools, authorization,
+refund rules, and the entire test suite were already provider-neutral.
+
+**Consequence:** the neutrality claim is now tested rather than asserted. `ScriptedModelClient`
+takes a wire format, so `tests/test_providers.py::TestLoopIsProviderNeutral` drives the same
+scripted run through both and asserts each produces its provider's threading *and* identical
+agent behavior. Adapters also normalize *when* a missing credential surfaces: the OpenAI SDK
+raises at construction while Anthropic defers to request time, so the OpenAI adapter catches that
+and reports it through `credential_available()` instead. Without this, the same missing-key
+mistake was a clean 503 on one provider and a 500 on the other.

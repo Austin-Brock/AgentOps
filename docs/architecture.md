@@ -14,8 +14,8 @@ is the point of the repository — the gap between them is the work.
          +---------+---------+
          |                   |
          v                   v
-    LLM Provider        Tool Registry
-    (Anthropic)              |
+    Model Adapter       Tool Registry
+  (Anthropic/OpenAI)         |
                              v
                       Permission Check     (application code)
                              |
@@ -124,7 +124,7 @@ Production Controls
 | Frontend | React + TypeScript | Agent dashboard and approval queue |
 | Database | PostgreSQL | Orders, customers, memory, audit |
 | Vector search | pgvector | Semantic document retrieval |
-| LLM | Anthropic (`claude-opus-5`) | Agent reasoning |
+| LLM | Anthropic or OpenAI, selected by config | Agent reasoning |
 | Agent runtime | Custom Python, initially | Understand agent internals |
 | Orchestration | LangGraph, later | Stateful agent execution, for comparison |
 | MCP | Official MCP Python SDK | Standardized tool access |

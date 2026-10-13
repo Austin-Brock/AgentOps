@@ -26,7 +26,7 @@ from app.config import REPO_ROOT, Settings
 from app.data.store import DataStore
 from app.evaluation.grader import ScenarioResult, grade
 from app.evaluation.scenario import Dataset, Scenario, load_dataset
-from app.llm.client import AnthropicModelClient
+from app.llm.factory import build_model_client, credential_available
 from app.tools.base import Fault, FaultInjector
 from app.tools.toolset import build_support_toolset
 
@@ -89,7 +89,7 @@ async def run_scenario(scenario: Scenario, settings: Settings) -> ScenarioResult
     """Each scenario gets its own store, so refunds never leak between them."""
     store = DataStore(settings=settings)
     agent = SupportAgent(
-        model=AnthropicModelClient(settings=settings),
+        model=build_model_client(settings),
         registry=build_support_toolset(),
         store=store,
         settings=settings,
@@ -220,7 +220,12 @@ def main(argv: list[str] | None = None) -> int:
         overrides["max_steps"] = args.max_steps
     settings = Settings(**overrides)
 
-    print(f"Running {len(dataset)} scenario(s) against {settings.model}...\n")
+    if not credential_available(build_model_client(settings)):
+        parser.error(
+            f"No {settings.provider} credential resolved. Run `make preflight` for details."
+        )
+
+    print(f"Running {len(dataset)} scenario(s) against {settings.model} ({settings.provider})...\n")
     summary = asyncio.run(run_dataset(dataset, settings, concurrency=args.concurrency))
     print(report(summary))
 
