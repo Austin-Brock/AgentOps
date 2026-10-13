@@ -17,8 +17,9 @@ build/
 .vite/
 frontend/*.tsbuildinfo
 
-# Vite builds the frontend here; Vercel serves public/** from the CDN.
-/public/
+# public/ is NOT ignored: it holds the built frontend, and Vercel's FastAPI
+# preset serves static assets from public/** as committed rather than from
+# build output. See frontend/vite.config.ts.
 
 # Environment
 .env

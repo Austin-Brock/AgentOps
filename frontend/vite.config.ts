@@ -15,11 +15,17 @@ export default defineConfig({
       "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
     },
   },
-  // Built into ../public rather than ./dist: Vercel detects this repository as
-  // a backend-framework project and routes every unmatched path to the FastAPI
-  // function, so static assets have to live in `public/**` to be served by the
-  // CDN at all. `make web-build` writes to the same place for local parity.
-  build: { outDir: "../public", emptyOutDir: true, sourcemap: true },
+  // Built into ../public, and that directory is committed. Vercel detects this
+  // repository as a FastAPI project, and for a backend-framework preset static
+  // assets are served from `public/**` as it exists in the repository — not
+  // from build output. A CLI deploy uploads the locally built directory and
+  // works; a deploy triggered by a git push has no `public/` unless it is
+  // committed, and then serves nothing while reporting a successful build.
+  //
+  // Committing build output is a real cost, paid deliberately: the alternative
+  // is a deployment whose two paths to production behave differently.
+  // Sourcemaps are off so the committed artifact stays ~235KB rather than 1.3MB.
+  build: { outDir: "../public", emptyOutDir: true, sourcemap: false },
   // jsdom so the page itself can be mounted and driven in tests, not only its
   // pure helpers. `globals` keeps the test files free of vitest imports for
   // describe/it/expect, matching how the Python suite reads.
